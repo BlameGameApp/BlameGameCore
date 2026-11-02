@@ -1,0 +1,659 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Photo Blame</title>
+<meta name="description" content="A party game for 2 to 12 people. Everyone adds photos from their camera roll, then you race to guess who took each one.">
+<meta name="theme-color" content="#FFC200">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://photoblame.com/">
+<meta property="og:title" content="Photo Blame">
+<meta property="og:description" content="Guess whose photo it is. A party game for 2 to 12 people.">
+<meta property="og:image" content="https://photoblame.com/og.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23FFC200'/%3E%3Cpath d='M16 4l10.4 6v12L16 28 5.6 22V10z' fill='%23EE3A1C'/%3E%3C/svg%3E">
+<style>
+/* The app's own look, on purpose: marigold, black and white, flat, system font,
+   light only because the app is. The bold part is one playable round in the
+   hero. Colours mirror lib/theme/app_theme.dart and lib/ui/player_cosmetics.dart. */
+:root {
+  --ink: #000000;
+  --paper: #FFFFFF;
+  --muted: #666666;
+  --surface: #EBEBEB;
+  --surface-hover: #DEDEDE;
+  --brand: #FFC200;
+  --correct: #0B7A43;
+  --alert: #C82A0E;
+  --font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  color-scheme: light;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+[hidden] { display: none !important; }
+.off { visibility: hidden; }
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font: 17px/1.5 var(--font);
+  -webkit-text-size-adjust: 100%;
+}
+
+h1, h2, h3, p, ol { margin: 0; padding: 0; }
+ol { list-style: none; }
+h2 { font-size: clamp(28px, 5vw, 38px); font-weight: 800; line-height: 1.15; text-wrap: balance; }
+h3 { font-size: 20px; font-weight: 700; line-height: 1.25; }
+a { color: inherit; text-underline-offset: 3px; }
+:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
+
+.sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.wrap {
+  max-width: 1040px;
+  margin-inline: auto;
+  padding-left: max(20px, env(safe-area-inset-left, 0px));
+  padding-right: max(20px, env(safe-area-inset-right, 0px));
+}
+
+/* A board-game piece: only the shape tilts, the letter stays straight. */
+.t { display: block; width: 100%; height: auto; overflow: visible; }
+.t text {
+  font: 800 45px var(--font);
+  text-anchor: middle;
+  dominant-baseline: central;
+}
+
+/* Hero */
+.hero { background: var(--brand); }
+.hero .wrap {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 420px);
+  gap: 56px;
+  align-items: center;
+  padding-block: 48px;
+}
+.pitch { display: grid; gap: 20px; justify-items: start; min-width: 0; }
+.title { width: 100%; max-width: 460px; }
+.row { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.lead { font-size: clamp(26px, 4vw, 34px); font-weight: 800; line-height: 1.15; }
+.sub { max-width: 42ch; font-size: 18px; }
+
+.sticker {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  background: var(--paper);
+  color: var(--ink);
+  border: 2.5px solid var(--ink);
+  border-radius: 12px;
+  font-weight: 800;
+  line-height: 1.15;
+  transform: rotate(-3.4deg);
+}
+.soon { font-size: 18px; }
+
+/* The sample round. Same parts as the game screen, in the same order. */
+.demo { display: grid; gap: 12px; min-width: 0; }
+.note { font-size: 15px; line-height: 1.35; }
+.card {
+  position: relative;
+  display: grid;
+  overflow: hidden;
+  background: var(--paper);
+  border: 2.5px solid var(--ink);
+  border-radius: 16px;
+}
+/* Both views share one grid cell, so the card keeps its size between them. */
+.view { grid-area: 1 / 1; min-width: 0; display: flex; flex-direction: column; }
+
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 14px 4px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.clock { display: flex; align-items: center; gap: 8px; padding: 0 14px 8px; }
+.track { flex: 1; height: 8px; overflow: hidden; border-radius: 4px; background: var(--surface); }
+.fill { display: block; width: 100%; height: 100%; background: var(--ink); }
+/* A set height: the number is blank at the reveal, and nothing below may move. */
+.secs { width: 28px; height: 20px; font-size: 20px; font-weight: 700; line-height: 1; text-align: right; font-variant-numeric: tabular-nums; }
+.clock.urgent { color: var(--alert); }
+.clock.urgent .fill { background: var(--alert); }
+
+.photo { position: relative; aspect-ratio: 8 / 5; max-width: 100%; background: var(--ink); }
+.shot { display: block; width: 100%; height: 100%; }
+.photo .sticker { position: absolute; left: 12px; bottom: 12px; max-width: calc(100% - 40px); font-size: 19px; }
+.photo .sticker .t { flex: none; width: 30px; }
+
+/* Tall enough for the reveal text, so the names below stay where they are. */
+.status { display: flex; align-items: center; gap: 12px; min-height: 84px; padding: 8px 14px; }
+.status > div { flex: 1; min-width: 0; line-height: 1.25; }
+.head { display: block; font-size: 19px; font-weight: 700; }
+.head.good { color: var(--correct); }
+.detail { display: block; font-size: 15px; }
+
+.primary {
+  min-height: 48px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--brand);
+  color: var(--ink);
+  font: 700 17px var(--font);
+  cursor: pointer;
+}
+.primary:hover { background: #F2B800; }
+
+.guesses { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; padding: 0 12px 12px; }
+.guess {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr) 20px;
+  gap: 2px 8px;
+  align-items: center;
+  align-content: start;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.guess:hover:enabled { background: var(--surface-hover); }
+.guess b { font-size: 16px; font-weight: 600; }
+.guess small { grid-column: 1 / -1; font-size: 13px; line-height: 1.25; }
+.guess:disabled { color: var(--muted); cursor: default; }
+.guess.right { background: var(--correct); color: var(--paper); }
+.guess.wrong { background: var(--alert); color: var(--paper); }
+.mark { display: none; width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+.right .yes, .wrong .no { display: block; }
+
+.board-head { padding: 22px 16px; background: var(--brand); }
+.board-head h3 { font-size: 28px; font-weight: 800; }
+.ranks { flex: 1; padding: 6px 16px; }
+.ranks li {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  min-height: 56px;
+  padding-block: 6px;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+}
+.ranks b { display: block; font-weight: 600; }
+.ranks small { display: block; color: var(--muted); font-size: 14px; }
+.ranks em { font-style: normal; font-weight: 700; }
+.ranks .me b { font-weight: 800; }
+.board .primary { margin: 0 16px 16px; }
+
+.paper { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+
+/* Sections */
+.band { padding-block: 56px; }
+.how { display: grid; gap: 28px; }
+.steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 32px; }
+.steps li { display: grid; gap: 10px; align-content: start; min-width: 0; }
+.steps .t { width: 52px; }
+
+.hardcore { background: var(--ink); color: var(--paper); }
+.hardcore .wrap { display: grid; grid-template-columns: 76px minmax(0, 1fr); gap: 24px; align-items: center; }
+.hardcore p { max-width: 62ch; }
+.hardcore h2 { margin-bottom: 6px; }
+.hardcore :focus-visible { outline-color: var(--paper); }
+
+.facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 28px 40px; }
+.facts li { display: grid; gap: 4px; min-width: 0; }
+.facts p { max-width: 46ch; }
+
+.foot { background: var(--brand); }
+.foot .wrap { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px 32px; padding-block: 24px; font-weight: 600; }
+
+@media (max-width: 860px) {
+  .hero .wrap { grid-template-columns: minmax(0, 1fr); gap: 32px; padding-block: 28px 32px; }
+  .demo { justify-self: center; width: 100%; max-width: 460px; }
+  .band { padding-block: 44px; }
+  .steps { grid-template-columns: minmax(0, 1fr); gap: 24px; }
+  .steps li { grid-template-columns: 52px minmax(0, 1fr); gap: 2px 14px; }
+  .steps .t { grid-row: span 2; align-self: start; }
+  .facts { grid-template-columns: minmax(0, 1fr); gap: 20px; }
+}
+/* The narrowest iPhone: without this a name runs into the right/wrong icon. */
+@media (max-width: 360px) {
+  .guess { grid-template-columns: 26px minmax(0, 1fr) 18px; column-gap: 6px; padding-inline: 8px; }
+  .mark { width: 18px; height: 18px; }
+  .status { min-height: 112px; }
+}
+@media (max-width: 560px) {
+  .hardcore .wrap { grid-template-columns: minmax(0, 1fr); gap: 14px; }
+  .hardcore .t { width: 56px; }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .title .t { animation: drop .42s cubic-bezier(.34, 1.56, .64, 1) both; animation-delay: calc(var(--i) * 42ms); }
+  .photo .sticker { animation: slap .28s cubic-bezier(.34, 1.56, .64, 1); }
+  .fill { transition: width .2s linear; }
+}
+@keyframes drop { from { opacity: 0; transform: translateY(-56px); } }
+@keyframes slap { from { transform: rotate(-3.4deg) scale(.3); } }
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="s0" viewBox="0 0 100 100"><circle cx="50" cy="50" r="50"/></symbol>
+  <symbol id="s1" viewBox="0 0 100 100"><path d="M43.3 1.9Q50.0 -1.9 56.7 1.9L88.2 20.1Q95.0 24.0 95.0 31.8L95.0 68.2Q95.0 76.0 88.2 79.9L56.7 98.1Q50.0 101.9 43.3 98.1L11.8 79.9Q5.0 76.0 5.0 68.2L5.0 31.8Q5.0 24.0 11.8 20.1Z"/></symbol>
+  <symbol id="s2" viewBox="0 0 100 100"><path d="M80.0 0.0Q100.0 0.0 100.0 20.0L100.0 80.0Q100.0 100.0 80.0 100.0L20.0 100.0Q0.0 100.0 0.0 80.0L0.0 20.0Q0.0 0.0 20.0 0.0Z"/></symbol>
+  <symbol id="s3" viewBox="0 0 100 100"><path d="M45.2 2.0Q50.0 -2.0 54.8 2.0L65.9 11.5L80.5 12.7Q86.8 13.2 87.3 19.5L88.5 34.1L98.0 45.2Q102.0 50.0 98.0 54.8L88.5 65.9L87.3 80.5Q86.8 86.8 80.5 87.3L65.9 88.5L54.8 98.0Q50.0 102.0 45.2 98.0L34.1 88.5L19.5 87.3Q13.2 86.8 12.7 80.5L11.5 65.9L2.0 54.8Q-2.0 50.0 2.0 45.2L11.5 34.1L12.7 19.5Q13.2 13.2 19.5 12.7L34.1 11.5Z"/></symbol>
+  <symbol id="s4" viewBox="0 0 100 100"><path d="M42.2 4.6Q50.0 -1.0 57.8 4.6L94.3 31.2Q102.2 36.9 99.2 46.1L85.2 89.0Q82.2 98.2 72.6 98.2L27.4 98.2Q17.8 98.2 14.8 89.0L0.8 46.1Q-2.2 36.9 5.7 31.2Z"/></symbol>
+  <symbol id="s5" viewBox="0 0 100 100"><path d="M44.7 5.4Q50.0 -1.3 55.3 5.4L71.0 25.6L95.2 34.4Q103.2 37.3 98.4 44.4L84.0 65.6L83.2 91.3Q82.9 99.8 74.7 97.5L50.0 90.4L25.3 97.5Q17.1 99.8 16.8 91.3L16.0 65.6L1.6 44.4Q-3.2 37.3 4.8 34.4L29.0 25.6Z"/></symbol>
+  <symbol id="s6" viewBox="0 0 100 100"><path d="M41.9 4.1Q50.0 -4.1 58.1 4.1L95.9 41.9Q104.1 50.0 95.9 58.1L58.1 95.9Q50.0 104.1 41.9 95.9L4.1 58.1Q-4.1 50.0 4.1 41.9Z"/></symbol>
+  <symbol id="s7" viewBox="0 0 100 100"><path d="M47.7 0.9Q50.0 -0.9 52.3 0.9L61.3 7.7L72.6 6.3Q75.4 6.0 76.5 8.6L80.9 19.1L91.4 23.5Q94.0 24.6 93.7 27.4L92.3 38.7L99.1 47.7Q100.9 50.0 99.1 52.3L92.3 61.3L93.7 72.6Q94.0 75.4 91.4 76.5L80.9 80.9L76.5 91.4Q75.4 94.0 72.6 93.7L61.3 92.3L52.3 99.1Q50.0 100.9 47.7 99.1L38.7 92.3L27.4 93.7Q24.6 94.0 23.5 91.4L19.1 80.9L8.6 76.5Q6.0 75.4 6.3 72.6L7.7 61.3L0.9 52.3Q-0.9 50.0 0.9 47.7L7.7 38.7L6.3 27.4Q6.0 24.6 8.6 23.5L19.1 19.1L23.5 8.6Q24.6 6.0 27.4 6.3L38.7 7.7Z"/></symbol>
+  <symbol id="s8" viewBox="0 0 100 100"><path d="M46.4 0.7Q50.0 -0.7 53.6 0.7L82.3 12.6Q85.9 14.1 87.4 17.7L99.3 46.4Q100.7 50.0 99.3 53.6L87.4 82.3Q85.9 85.9 82.3 87.4L53.6 99.3Q50.0 100.7 46.4 99.3L17.7 87.4Q14.1 85.9 12.6 82.3L0.7 53.6Q-0.7 50.0 0.7 46.4L12.6 17.7Q14.1 14.1 17.7 12.6Z"/></symbol>
+  <symbol id="s9" viewBox="0 0 100 100"><path d="M39.6 6.0Q50.0 -6.0 60.4 6.0L76.1 23.9L94.0 39.6Q106.0 50.0 94.0 60.4L76.1 76.1L60.4 94.0Q50.0 106.0 39.6 94.0L23.9 76.1L6.0 60.4Q-6.0 50.0 6.0 39.6L23.9 23.9Z"/></symbol>
+  <symbol id="s10" viewBox="0 0 100 100"><path d="M43.3 3.5Q50.0 -3.5 56.7 3.5L69.3 16.6L86.9 20.9Q96.4 23.2 93.6 32.6L88.5 50.0L93.6 67.4Q96.4 76.8 86.9 79.1L69.3 83.4L56.7 96.5Q50.0 103.5 43.3 96.5L30.7 83.4L13.1 79.1Q3.6 76.8 6.4 67.4L11.5 50.0L6.4 32.6Q3.6 23.2 13.1 20.9L30.7 16.6Z"/></symbol>
+  <symbol id="s11" viewBox="0 0 100 100"><path d="M32.2 9.1Q50.0 -9.1 67.8 9.1L89.6 31.5L98.0 61.5Q105.0 86.0 80.2 92.3L50.0 100.0L19.8 92.3Q-5.0 86.0 2.0 61.5L10.4 31.5Z"/></symbol>
+</svg>
+
+<header class="hero">
+  <div class="wrap">
+    <div class="pitch">
+      <h1 class="title">
+        <span class="sr">Photo Blame</span>
+        <span class="row" aria-hidden="true">
+          <svg class="t" viewBox="0 0 100 100" style="--i:0"><use href="#s1" fill="#EE3A1C" transform="rotate(6.9 50 50)"/><text x="50" y="52" fill="#000">P</text></svg>
+          <svg class="t" viewBox="0 0 100 100" style="--i:1"><use href="#s2" fill="#1B3BD4" transform="rotate(-8 50 50)"/><text x="50" y="52" fill="#fff">H</text></svg>
+          <svg class="t" viewBox="0 0 100 100" style="--i:2"><use href="#s4" fill="#0C5E48" transform="rotate(5.7 50 50)"/><text x="50" y="52" fill="#fff">O</text></svg>
+          <svg class="t" viewBox="0 0 100 100" style="--i:3"><use href="#s6" fill="#5A1A6B"/><text x="50" y="52" fill="#fff">T</text></svg>
+          <svg class="t" viewBox="0 0 100 100" style="--i:4"><use href="#s9" fill="#152A5C" transform="rotate(17.2 50 50)"/><text x="50" y="52" fill="#fff">O</text></svg>
+        </span>
+        <span class="row" aria-hidden="true">
+          <svg class="t" viewBox="0 0 100 100" style="--i:5"><use href="#s3" fill="#FFB0C8"/><text x="50" y="52" fill="#000">B</text></svg>
+          <svg class="t" viewBox="0 0 100 100" style="--i:6"><use href="#s7" fill="#86D2F2"/><text x="50" y="52" fill="#000">L</text></svg>
+          <svg class="t" viewBox="0 0 100 100" style="--i:7"><use href="#s10" fill="#3FDDB0"/><text x="50" y="52" fill="#000">A</text></svg>
+          <svg class="t" viewBox="0 0 100 100" style="--i:8"><use href="#s11" fill="#B8A1F7" transform="rotate(8 50 50)"/><text x="50" y="52" fill="#000">M</text></svg>
+          <svg class="t" viewBox="0 0 100 100" style="--i:9"><use href="#s1" fill="#EE3A1C" transform="rotate(6.9 50 50)"/><text x="50" y="52" fill="#000">E</text></svg>
+        </span>
+      </h1>
+      <p class="lead">Guess whose photo it is</p>
+      <p class="sub">A party game for 2 to 12 people. Everyone adds photos from their camera roll, then you race to work out who took each one.</p>
+      <p class="sticker soon">Coming soon to iPhone</p>
+    </div>
+
+    <section class="demo" aria-label="Sample round">
+      <p class="note">Try a sample round. You don't know these four yet, so each name comes with a clue.</p>
+      <div class="card" id="card">
+        <div class="view" id="round">
+          <div class="topbar"><span id="rnd">Round 1 of 3</span><span id="pts">0 points</span></div>
+          <div class="clock" id="clock">
+            <span class="track"><span class="fill" id="fill"></span></span>
+            <span class="secs" id="secs" aria-hidden="true">10</span>
+          </div>
+          <div class="photo">
+            <svg class="shot" viewBox="0 0 640 400" preserveAspectRatio="xMidYMid slice" role="img" aria-label="An orange cat sitting on an open laptop">
+              <rect width="640" height="400" fill="#FFB0C8"/>
+              <rect y="316" width="640" height="84" fill="#152A5C"/>
+              <rect x="150" y="66" width="340" height="232" rx="14" fill="#000"/>
+              <rect x="164" y="80" width="312" height="204" fill="#86D2F2"/>
+              <path d="M184 108h110M184 132h170M184 156h76" stroke="#fff" stroke-width="10" fill="none"/>
+              <path d="M120 296h400l34 30H86z" fill="#EBEBEB"/>
+              <path d="M404 280c58 6 76-30 58-68" fill="none" stroke="#FF7A14" stroke-width="26" stroke-linecap="round"/>
+              <ellipse cx="320" cy="256" rx="94" ry="62" fill="#FF7A14"/>
+              <path d="M262 132l-10-70 58 40h20l58-40-10 70z" fill="#FF7A14"/>
+              <circle cx="320" cy="162" r="72" fill="#FF7A14"/>
+              <path d="M302 94v24M320 92v30M338 94v24" stroke="#C85A08" stroke-width="9" stroke-linecap="round"/>
+              <circle cx="292" cy="156" r="11"/><circle cx="348" cy="156" r="11"/>
+              <path d="M311 180h18l-9 10z" fill="#EE3A1C"/>
+              <path d="M258 176l-34-6M258 190l-34 6M382 176l34-6M382 190l34 6" stroke="#000" stroke-width="3" stroke-linecap="round"/>
+              <ellipse cx="280" cy="312" rx="36" ry="17" fill="#FF7A14"/>
+              <ellipse cx="360" cy="312" rx="36" ry="17" fill="#FF7A14"/>
+            </svg>
+            <svg class="shot" viewBox="0 0 640 400" preserveAspectRatio="xMidYMid slice" role="img" aria-label="A pizza on a plate, photographed from above, with one slice already gone" hidden>
+              <rect width="640" height="400" fill="#B8A1F7"/>
+              <path d="M0 0h80v80H0zM160 0h80v80h-80zM320 0h80v80h-80zM480 0h80v80h-80zM80 80h80v80H80zM240 80h80v80h-80zM400 80h80v80h-80zM560 80h80v80h-80zM0 160h80v80H0zM160 160h80v80h-80zM320 160h80v80h-80zM480 160h80v80h-80zM80 240h80v80H80zM240 240h80v80h-80zM400 240h80v80h-80zM560 240h80v80h-80zM0 320h80v80H0zM160 320h80v80h-80zM320 320h80v80h-80zM480 320h80v80h-80z" fill="#fff" opacity=".35"/>
+              <circle cx="320" cy="200" r="182" fill="#fff"/>
+              <circle cx="320" cy="200" r="158" fill="#EBEBEB"/>
+              <circle cx="320" cy="200" r="140" fill="#FF7A14"/>
+              <circle cx="320" cy="200" r="120" fill="#FFC200"/>
+              <g fill="#EE3A1C"><circle cx="262" cy="134" r="21"/><circle cx="348" cy="118" r="21"/><circle cx="232" cy="212" r="21"/><circle cx="312" cy="196" r="21"/><circle cx="276" cy="276" r="21"/><circle cx="360" cy="280" r="21"/></g>
+              <g fill="#0C5E48"><ellipse cx="302" cy="146" rx="13" ry="7" transform="rotate(30 302 146)"/><ellipse cx="256" cy="172" rx="13" ry="7" transform="rotate(-40 256 172)"/><ellipse cx="322" cy="244" rx="13" ry="7" transform="rotate(70 322 244)"/><ellipse cx="234" cy="264" rx="13" ry="7" transform="rotate(15 234 264)"/></g>
+              <path d="M320 200L462 150A150 150 0 0 1 462 250z" fill="#EBEBEB"/>
+              <path d="M62 90h8v60h-8zM78 90h8v60h-8zM94 90h8v60h-8zM62 150h40v22H62zM74 170h16v150H74z" fill="#000"/>
+              <path d="M560 80c26 12 26 86 18 112h-18zM560 190h18v130h-18z" fill="#000"/>
+            </svg>
+            <svg class="shot" viewBox="0 0 640 400" preserveAspectRatio="xMidYMid slice" role="img" aria-label="A holiday view of mountains and a sailing boat, half covered by a big thumb" hidden>
+              <rect width="640" height="400" fill="#86D2F2"/>
+              <circle cx="176" cy="92" r="46" fill="#FFC200"/>
+              <path d="M0 262L116 150l96 96 112-122 150 134 166-96v154H0z" fill="#0C5E48"/>
+              <rect y="278" width="640" height="122" fill="#1B3BD4"/>
+              <path d="M36 312h76M210 346h96M60 372h70" stroke="#fff" stroke-width="6" stroke-linecap="round"/>
+              <path d="M146 324h104l-16 26h-74z" fill="#fff"/>
+              <path d="M194 316v-82l48 82z" fill="#EE3A1C"/>
+              <g transform="rotate(-22 500 400)">
+                <rect x="392" y="96" width="256" height="500" rx="128" fill="#FFB0C8"/>
+                <path d="M452 236c30-60 106-60 136 0M474 262c20-38 72-38 92 0M498 288c10-16 34-16 44 0" fill="none" stroke="#F08FAE" stroke-width="7" stroke-linecap="round"/>
+              </g>
+            </svg>
+            <p class="sticker" id="sticker" hidden></p>
+          </div>
+          <div class="status">
+            <div aria-live="polite">
+              <span class="head" id="head">Whose photo is this?</span>
+              <span class="detail" id="detail"></span>
+            </div>
+            <button class="primary off" id="next" type="button">Next</button>
+          </div>
+          <div class="guesses">
+            <button class="guess" type="button" data-name="Mia">
+              <svg class="t" viewBox="0 0 100 100" aria-hidden="true"><use href="#s0" fill="#FFC200"/><text x="50" y="52" fill="#000">M</text></svg>
+              <b>Mia</b>
+              <svg class="mark yes" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
+              <svg class="mark no" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+              <small>Three cats, no usable keyboard</small>
+            </button>
+            <button class="guess" type="button" data-name="Jonas">
+              <svg class="t" viewBox="0 0 100 100" aria-hidden="true"><use href="#s1" fill="#EE3A1C" transform="rotate(6.9 50 50)"/><text x="50" y="52" fill="#000">J</text></svg>
+              <b>Jonas</b>
+              <svg class="mark yes" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
+              <svg class="mark no" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+              <small>Always just missed the bus</small>
+            </button>
+            <button class="guess" type="button" data-name="Priya">
+              <svg class="t" viewBox="0 0 100 100" aria-hidden="true"><use href="#s2" fill="#1B3BD4" transform="rotate(-8 50 50)"/><text x="50" y="52" fill="#fff">P</text></svg>
+              <b>Priya</b>
+              <svg class="mark yes" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
+              <svg class="mark no" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+              <small>Nobody eats until the photo's done</small>
+            </button>
+            <button class="guess" type="button" data-name="Theo">
+              <svg class="t" viewBox="0 0 100 100" aria-hidden="true"><use href="#s3" fill="#FFB0C8"/><text x="50" y="52" fill="#000">T</text></svg>
+              <b>Theo</b>
+              <svg class="mark yes" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
+              <svg class="mark no" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+              <small>Thumb in every holiday photo</small>
+            </button>
+          </div>
+        </div>
+        <div class="view board off" id="board">
+          <div class="board-head"><h3 id="verdict"></h3></div>
+          <ol class="ranks" id="ranks"></ol>
+          <button class="primary" id="again" type="button">Play again</button>
+        </div>
+        <canvas class="paper" id="paper" aria-hidden="true"></canvas>
+      </div>
+    </section>
+  </div>
+</header>
+
+<main>
+  <section class="band">
+    <div class="wrap how">
+      <h2>How to play</h2>
+      <ol class="steps">
+        <li>
+          <svg class="t" viewBox="0 0 100 100" aria-hidden="true"><use href="#s0" fill="#FFC200"/><text x="50" y="52" fill="#000">1</text></svg>
+          <h3>Start a game</h3>
+          <p>One person starts a game and reads out the code. Everyone else types it in.</p>
+        </li>
+        <li>
+          <svg class="t" viewBox="0 0 100 100" aria-hidden="true"><use href="#s1" fill="#EE3A1C" transform="rotate(6.9 50 50)"/><text x="50" y="52" fill="#000">2</text></svg>
+          <h3>Add photos</h3>
+          <p>The app picks five random photos from your camera roll. Reshuffle until you're happy, then share them.</p>
+        </li>
+        <li>
+          <svg class="t" viewBox="0 0 100 100" aria-hidden="true"><use href="#s2" fill="#1B3BD4" transform="rotate(-8 50 50)"/><text x="50" y="52" fill="#fff">3</text></svg>
+          <h3>Blame someone</h3>
+          <p>Each round shows one photo for ten seconds. Tap who you think took it. The faster you're right, the more points you get.</p>
+        </li>
+      </ol>
+    </div>
+  </section>
+
+  <section class="band hardcore">
+    <div class="wrap">
+      <svg class="t" viewBox="0 0 100 100" aria-hidden="true"><use href="#s1" fill="#EE3A1C" transform="rotate(6.9 50 50)"/><text x="50" y="52" fill="#000">!</text></svg>
+      <div>
+        <h2>Hardcore mode</h2>
+        <p>Your photos are picked at random and shared without showing them to you first. The host turns it on, and the lobby tells everyone before they add a photo.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="band">
+    <div class="wrap how">
+      <h2>What happens to your photos</h2>
+      <ul class="facts" style="list-style:none;margin:0;padding:0">
+        <li><h3>You see them first</h3><p>Nothing leaves your phone until you share it. Hardcore mode is the one exception.</p></li>
+        <li><h3>No location data</h3><p>Location and camera details are removed from every photo before it's stored.</p></li>
+        <li><h3>Deleted after the party</h3><p>A room and its photos are deleted after six hours without activity.</p></li>
+        <li><h3>No account</h3><p>You play with a name and a code. There's nothing to sign up for.</p></li>
+      </ul>
+    </div>
+  </section>
+</main>
+
+<footer class="foot">
+  <div class="wrap">
+    <span>Photo Blame</span>
+    <a href="mailto:hello@photoblame.com">hello@photoblame.com</a>
+  </div>
+</footer>
+
+<script>
+(() => {
+  // The app's default round, and its rule: 100 points per second left.
+  const ROUND_SECONDS = 10;
+  const POINTS_PER_SECOND = 100;
+
+  // fill, text on it, tilt in degrees: one per seat in player_cosmetics.dart.
+  const PIECES = [
+    ['#FFC200', '#000', 0], ['#EE3A1C', '#000', 6.9], ['#1B3BD4', '#fff', -8], ['#FFB0C8', '#000', 0],
+    ['#0C5E48', '#fff', 5.7], ['#C8E72E', '#000', -5.7], ['#5A1A6B', '#fff', 0], ['#86D2F2', '#000', 0],
+    ['#FF7A14', '#000', 11.5], ['#152A5C', '#fff', 17.2], ['#3FDDB0', '#000', 0], ['#B8A1F7', '#000', 8],
+  ];
+  const SEATS = { Mia: 0, Jonas: 1, Priya: 2, Theo: 3, You: 4 };
+  const ROUNDS = [
+    { owner: 'Mia', prompt: 'Whose photo is this?', verdict: 'Mia did it!' },
+    { owner: 'Priya', prompt: "Who's to blame?", verdict: 'Blame Priya!' },
+    { owner: 'Theo', prompt: 'Who took this one?', verdict: 'Guilty: Theo' },
+  ];
+  const RIVALS = [['Priya', 1400], ['Mia', 1100], ['Theo', 900], ['Jonas', 0]];
+
+  const $ = (id) => document.getElementById(id);
+  const shots = [...document.querySelectorAll('.shot')];
+  const guesses = [...document.querySelectorAll('.guess')];
+  const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
+
+  let round = 0;
+  let points = 0;
+  let guessing = true;
+  let timer = null;
+  let endsAt = 0;
+
+  const token = (name) => {
+    const seat = SEATS[name];
+    const [fill, on, tilt] = PIECES[seat];
+    return `<svg class="t" viewBox="0 0 100 100" aria-hidden="true"><use href="#s${seat}" fill="${fill}" transform="rotate(${tilt} 50 50)"/><text x="50" y="52" fill="${on}">${name[0]}</text></svg>`;
+  };
+
+  const timeLeft = () => (timer === null ? ROUND_SECONDS * 1000 : Math.max(0, endsAt - performance.now()));
+
+  const drawClock = () => {
+    const left = timeLeft();
+    const seconds = Math.ceil(left / 1000);
+    $('secs').textContent = guessing ? seconds : '';
+    $('fill').style.width = guessing ? `${left / (ROUND_SECONDS * 10)}%` : '0';
+    $('clock').classList.toggle('urgent', guessing && seconds <= 3);
+  };
+
+  const stopClock = () => {
+    clearInterval(timer);
+    timer = null;
+  };
+
+  const startClock = () => {
+    if (!guessing || timer !== null) return;
+    endsAt = performance.now() + ROUND_SECONDS * 1000;
+    timer = setInterval(() => {
+      if (timeLeft() <= 0) reveal(null);
+      else drawClock();
+    }, 200);
+  };
+
+  const showRound = () => {
+    guessing = true;
+    // An attribute, not `.hidden`: SVG elements have no such property.
+    shots.forEach((shot, i) => shot.toggleAttribute('hidden', i !== round));
+    $('sticker').hidden = true;
+    $('rnd').textContent = `Round ${round + 1} of ${ROUNDS.length}`;
+    $('pts').textContent = `${points.toLocaleString('en')} points`;
+    $('head').textContent = ROUNDS[round].prompt;
+    $('head').classList.remove('good');
+    $('detail').textContent = '';
+    $('next').classList.add('off');
+    guesses.forEach((guess) => {
+      guess.disabled = false;
+      guess.classList.remove('right', 'wrong');
+    });
+    drawClock();
+  };
+
+  const reveal = (guessed) => {
+    if (!guessing) return;
+    const { owner, verdict } = ROUNDS[round];
+    const correct = guessed === owner;
+    const earned = correct ? Math.ceil(timeLeft() / 1000) * POINTS_PER_SECOND : 0;
+    points += earned;
+    guessing = false;
+    stopClock();
+    drawClock();
+
+    $('pts').textContent = `${points.toLocaleString('en')} points`;
+    $('head').textContent = `It was ${owner}'s photo`;
+    $('head').classList.toggle('good', correct);
+    $('detail').textContent = correct
+      ? `Correct! +${earned} points`
+      : guessed ? `You blamed ${guessed}. Not guilty.` : 'You said nothing. Suspicious.';
+    $('sticker').innerHTML = `${token(owner)}<span>${verdict}</span>`;
+    $('sticker').hidden = false;
+
+    const focusInCard = $('card').contains(document.activeElement);
+    guesses.forEach((guess) => {
+      guess.disabled = true;
+      guess.classList.toggle('right', guess.dataset.name === owner);
+      guess.classList.toggle('wrong', guess.dataset.name === guessed && !correct);
+    });
+    $('next').textContent = round + 1 < ROUNDS.length ? 'Next' : 'Results';
+    $('next').classList.remove('off');
+    if (focusInCard) $('next').focus({ preventScroll: true });
+  };
+
+  const confetti = () => {
+    if (reducedMotion.matches) return;
+    const canvas = $('paper');
+    const { width, height } = canvas.getBoundingClientRect();
+    const ratio = window.devicePixelRatio || 1;
+    canvas.width = width * ratio;
+    canvas.height = height * ratio;
+    const context = canvas.getContext('2d');
+    context.scale(ratio, ratio);
+    const papers = Array.from({ length: 70 }, (_, i) => ({
+      color: PIECES[i % PIECES.length][0],
+      round: Math.random() < 0.5,
+      start: Math.random() * 0.45,
+      x: Math.random(),
+      size: 7 + Math.random() * 7,
+      sway: 10 + Math.random() * 26,
+      spin: 3 + Math.random() * 9,
+    }));
+    const begin = performance.now();
+    requestAnimationFrame(function frame(now) {
+      const progress = (now - begin) / 2600;
+      context.clearRect(0, 0, width, height);
+      if (progress >= 1) return;
+      for (const paper of papers) {
+        const t = (progress - paper.start) / (1 - paper.start);
+        if (t <= 0 || t >= 1) continue;
+        context.save();
+        context.translate(paper.x * width + Math.sin(t * Math.PI * 3) * paper.sway, -20 + (height + 40) * t * t);
+        context.rotate(paper.spin * t);
+        context.fillStyle = paper.color;
+        if (paper.round) {
+          context.beginPath();
+          context.arc(0, 0, paper.size / 2, 0, Math.PI * 2);
+          context.fill();
+        } else {
+          context.fillRect(-paper.size / 2, -paper.size * 0.3, paper.size, paper.size * 0.6);
+        }
+        context.restore();
+      }
+      requestAnimationFrame(frame);
+    });
+  };
+
+  const showBoard = () => {
+    const table = [...RIVALS, ['You', points]].sort((a, b) => b[1] - a[1]);
+    const top = table[0][1];
+    const tied = table[1][1] === top;
+    const won = !tied && table[0][0] === 'You';
+    $('verdict').textContent = tied ? "It's a tie!" : won ? 'You win!' : `${table[0][0]} wins!`;
+    $('ranks').innerHTML = table.map(([name, score], i) => {
+      const title = i === 0 && !tied ? 'Top detective'
+        : i === table.length - 1 && score < top ? 'Prime suspect' : '';
+      return `<li class="${name === 'You' ? 'me' : ''}">${token(name)}<span><b>${name}</b>${title ? `<small>${title}</small>` : ''}</span><em>${score.toLocaleString('en')}</em></li>`;
+    }).join('');
+    $('round').classList.add('off');
+    $('board').classList.remove('off');
+    $('again').focus({ preventScroll: true });
+    if (won) confetti();
+  };
+
+  guesses.forEach((guess) => guess.addEventListener('click', () => reveal(guess.dataset.name)));
+
+  $('next').addEventListener('click', () => {
+    if (round + 1 === ROUNDS.length) {
+      showBoard();
+      return;
+    }
+    round += 1;
+    showRound();
+    startClock();
+    guesses[0].focus({ preventScroll: true });
+  });
+
+  $('again').addEventListener('click', () => {
+    round = 0;
+    points = 0;
+    $('board').classList.add('off');
+    $('round').classList.remove('off');
+    showRound();
+    startClock();
+    guesses[0].focus({ preventScroll: true });
+  });
+
+  // The clock waits until the round is on screen, or a phone would lose it
+  // while its owner is still reading the top of the page.
+  const watcher = new IntersectionObserver(([entry]) => {
+    if (!entry.isIntersecting) return;
+    watcher.disconnect();
+    startClock();
+  }, { threshold: 0.6 });
+  watcher.observe($('card'));
+})();
+</script>
+</body>
+</html>

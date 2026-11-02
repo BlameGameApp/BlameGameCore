@@ -148,3 +148,12 @@ into the engine rather than through the window server, so nothing in the test
 can answer it. Both suites detect that, say so, and contribute the photo over
 the API instead. To exercise the real picker, grant the permission by hand once
 on the device and run the app normally.
+
+## Website
+
+`website/` is the one-page site for photoblame.com: plain HTML, nothing to build
+or install. To look at it locally:
+
+```sh
+python3 -m http.server 8080 --directory website
+```

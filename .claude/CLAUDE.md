@@ -9,6 +9,7 @@ guesses; rounds tally into a final leaderboard.
 - **Frontend:** Flutter (Dart SDK `^3.11.5`), Material 3. Code in `lib/`.
 - **Backend:** FastAPI (Python 3.12), in-memory state + WebSockets. Code in `backend/app/`.
 - **Deploy:** backend targets Railway (`backend/railway.json`; the start command lives there, there is no Procfile). Single replica.
+- **Website:** one static page for photoblame.com in `website/`, no build step. Colours, piece shapes and the round's rules are copied by hand from `app_theme.dart`, `player_cosmetics.dart` and `scoring.py`, and its photo section makes promises about the backend, so change them together.
 
 ## Architecture
 
