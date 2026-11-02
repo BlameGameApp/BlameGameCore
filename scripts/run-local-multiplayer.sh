@@ -30,7 +30,9 @@ if curl -sf "$API_BASE/health" > /dev/null 2>&1; then
   echo "Backend already running at $API_BASE"
 else
   echo "Starting backend..."
-  (cd backend && source .venv/bin/activate && uvicorn app.main:app --reload --host 0.0.0.0 --port 8000) &
+  # --reload-dir: left to itself --reload also watches .venv, and any change
+  # there restarts the server and wipes every room, since they live in memory.
+  (cd backend && source .venv/bin/activate && uvicorn app.main:app --reload --reload-dir app --host 0.0.0.0 --port 8000) &
   PIDS+=("$!")
   for _ in $(seq 1 30); do
     curl -sf "$API_BASE/health" > /dev/null 2>&1 && break
@@ -95,7 +97,7 @@ echo "Player 2 -> $SIM_B_NAME ($UDID_B)"
 echo "API_BASE=$API_BASE"
 echo
 
-open -a Simulator
+scripts/open-simulator.sh
 
 # Build once up front and reuse the binary on both simulators. Two concurrent
 # `flutter run`s share build/ios and race while copying Flutter.framework, which

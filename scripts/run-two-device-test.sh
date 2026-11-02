@@ -31,7 +31,7 @@ B="$(device_id "$SIM_B_NAME")"
 [ -n "$A" ] && [ -n "$B" ] || { echo "could not find both simulators" >&2; exit 1; }
 
 for d in "$A" "$B"; do xcrun simctl boot "$d" 2>/dev/null || true; done
-open -a Simulator || true
+scripts/open-simulator.sh
 
 curl -sf "$API_BASE/health" > /dev/null || {
   echo "backend not reachable at $API_BASE — start it first" >&2; exit 1; }

@@ -9,8 +9,8 @@ updates are pushed over **WebSockets**.
 ```bash
 python -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"     # installs runtime + test deps
-pytest                       # 175 tests, no server needed
-uvicorn app.main:app --reload
+pytest                       # no server needed
+uvicorn app.main:app --reload --reload-dir app
 # → http://127.0.0.1:8000/docs
 ```
 
