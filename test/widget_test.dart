@@ -11,9 +11,10 @@ void main() {
   testWidgets('Home screen renders title and actions', (tester) async {
     await tester.pumpWidget(const PhotoBlameApp());
 
-    expect(find.text('PHOTO\nBLAME'), findsOneWidget);
-    expect(find.text('CREATE GAME'), findsOneWidget);
-    expect(find.text('JOIN GAME'), findsOneWidget);
+    expect(find.text('PHOTO'), findsOneWidget);
+    expect(find.text('BLAME'), findsOneWidget);
+    expect(find.text('Start a game'), findsOneWidget);
+    expect(find.text('Join'), findsOneWidget);
 
     // Name and game-code fields are present.
     expect(find.byType(TextField), findsNWidgets(2));

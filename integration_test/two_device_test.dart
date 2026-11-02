@@ -21,6 +21,8 @@ import 'package:http_parser/http_parser.dart' show MediaType;
 import 'package:integration_test/integration_test.dart';
 import 'package:photo_blame/config.dart';
 import 'package:photo_blame/main.dart' as app;
+import 'package:photo_blame/screens/lobby_screen.dart';
+import 'package:photo_blame/ui/band.dart';
 
 const roomCode = String.fromEnvironment('ROOM_CODE');
 const playerName = String.fromEnvironment('PLAYER_NAME', defaultValue: 'Player');
@@ -97,8 +99,8 @@ void main() {
     await tester.pump();
     await tester.enterText(find.byType(TextField).last, roomCode);
     await tester.pump();
-    await tester.tap(find.text('JOIN GAME'));
-    await pumpUntil(tester, () => _visible(find.text(roomCode)),
+    await tester.tap(find.text('Join'));
+    await pumpUntil(tester, () => _visible(find.byType(LobbyScreen)),
         reason: 'the lobby for $roomCode');
     debugPrint('$playerName joined $roomCode');
 
@@ -108,45 +110,39 @@ void main() {
     // one's own WebSocket, not a poll.
     await pumpUntil(
       tester,
-      () => tester.widgetList<Text>(find.byType(Text)).where((t) {
-            final d = t.data;
-            return d != null && (d.contains('PLAYERS (2)'));
-          }).isNotEmpty,
+      () => find.byType(PlayerBand).evaluate().length >= 2,
       timeout: const Duration(seconds: 120),
       reason: 'the other device to appear in the roster',
     );
 
     // --- the host, whoever got in first, runs the game ---------------------
-    final isHost = _visible(find.text('START GAME')) ||
-        _visible(find.textContaining('NEED '));
+    final isHost = _visible(find.text('Start game')) ||
+        _visible(find.textContaining('Need '));
     debugPrint('$playerName isHost=$isHost');
 
     if (isHost) {
-      await pumpUntil(tester, () => _visible(find.text('START GAME')),
+      await pumpUntil(tester, () => _visible(find.text('Start game')),
           timeout: const Duration(seconds: 120),
           reason: 'START to unlock');
       for (var i = 0; i < 4; i++) {
         await tester.tap(find.byTooltip('Fewer Rounds'));
         await tester.pump(const Duration(milliseconds: 300));
       }
-      await tester.tap(find.text('START GAME'));
+      await tester.tap(find.text('Start game'));
     }
 
     // --- both play the round ----------------------------------------------
     await pumpUntil(
       tester,
       () => _visible(find.textContaining('Round 1')) &&
-          !_visible(find.text('Game Code: ')),
+          !_visible(find.byType(LobbyScreen)),
       timeout: const Duration(seconds: 120),
       reason: 'the game screen',
     );
 
-    final anyChip = find.descendant(
-      of: find.byType(Wrap),
-      matching: find.byType(Text),
-    );
-    await pumpUntil(tester, () => _visible(anyChip), reason: 'the guess chips');
-    await tester.tap(anyChip.first);
+    final anyBand = find.byType(PlayerBand);
+    await pumpUntil(tester, () => _visible(anyBand), reason: 'the guess bands');
+    await tester.tap(anyBand.first);
     await pumpUntil(
       tester,
       () => _visible(find.textContaining('Correct!')) ||
@@ -155,10 +151,9 @@ void main() {
     );
 
     // --- both land on the same leaderboard ---------------------------------
-    await pumpUntil(tester, () => _visible(find.text('LEADERBOARD')),
+    await pumpUntil(tester, () => _visible(find.text('Leave game')),
         timeout: const Duration(seconds: 120), reason: 'the leaderboard');
-    expect(find.text('WINNER'), findsOneWidget);
-    expect(find.text(playerName), findsWidgets,
+    expect(find.text(playerName.toUpperCase()), findsWidgets,
         reason: 'this device should be on the board');
   });
 }

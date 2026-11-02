@@ -1,17 +1,15 @@
 import 'dart:async';
-import 'dart:math';
 import 'package:flutter/material.dart';
 
 import '../config.dart';
 import '../models/game_models.dart';
 import '../state/game_controller.dart';
 import '../theme/app_theme.dart';
+import '../ui/band.dart';
 import '../ui/connection_banner.dart';
 import '../ui/controller_screen.dart';
 import '../ui/error_text.dart';
-import '../ui/gradient_scaffold.dart';
-import '../ui/pill_badge.dart';
-import '../ui/result_banner.dart';
+import '../ui/fit_text.dart';
 import '../ui/player_cosmetics.dart';
 import 'results_screen.dart';
 
@@ -24,7 +22,7 @@ class GameScreen extends StatefulWidget {
 }
 
 class _GameScreenState extends State<GameScreen>
-    with TickerProviderStateMixin, GameControllerScreen<GameScreen> {
+    with GameControllerScreen<GameScreen> {
   @override
   GameController get controller => widget.controller;
   GameController get c => widget.controller;
@@ -34,28 +32,16 @@ class _GameScreenState extends State<GameScreen>
   Timer? _displayTimer;
   int _shownRound = -1;
   String? _myGuessedPlayerId;
-  GamePhase? _lastPhase;
-
-  late AnimationController _shakeController;
-  late Animation<double> _shakeAnimation;
 
   @override
   void initState() {
     super.initState();
-    _shakeController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 500),
-    );
-    _shakeAnimation = Tween<double>(begin: 0, end: 1).animate(
-      CurvedAnimation(parent: _shakeController, curve: Curves.elasticIn),
-    );
     _syncToRound();
   }
 
   @override
   void dispose() {
     _displayTimer?.cancel();
-    _shakeController.dispose();
     super.dispose();
   }
 
@@ -77,15 +63,7 @@ class _GameScreenState extends State<GameScreen>
       _syncToRound();
     }
 
-    // Round revealed -> stop the timer, shake if we were wrong. Gate on the
-    // transition: _onChange fires for every event, including other players'
-    // results, and the banner shouldn't re-shake each time one lands.
-    if (c.phase == GamePhase.revealed && _lastPhase != GamePhase.revealed) {
-      _displayTimer?.cancel();
-      final wrong = c.hasGuessedThisRound && (c.lastPointsEarned ?? 0) == 0;
-      if (wrong) _shakeController.forward(from: 0);
-    }
-    _lastPhase = c.phase;
+    if (c.phase == GamePhase.revealed) _displayTimer?.cancel();
     return false;
   }
 
@@ -137,267 +115,299 @@ class _GameScreenState extends State<GameScreen>
 
   @override
   Widget build(BuildContext context) {
-    return GradientScaffold(
-      gradient: AppGradient.verticalTwoStop,
-      child: Column(
+    final colors = context.colors;
+    return PosterScaffold(
+      top: colors.ink,
+      body: Column(
         children: [
-          ConnectionBanner(controller: c),
           _topBar(),
-          const SizedBox(height: 8),
-          _timerBar(),
-          const SizedBox(height: 16),
-          Expanded(child: _photoArea()),
-          const SizedBox(height: 16),
-          if (c.phase == GamePhase.revealed) _resultBanner(),
-          if (c.phase == GamePhase.inRound && c.hasGuessedThisRound)
-            _instantResultBanner(),
-          if (c.phase == GamePhase.inRound) _guessButtons(),
-          const SizedBox(height: 16),
+          ConnectionBanner(controller: c),
+          Expanded(
+            child: LayoutBuilder(
+              builder: (context, box) {
+                final panel = _panelHeight();
+                return Stack(
+                  children: [
+                    Positioned.fill(bottom: panel, child: _photoArea()),
+                    if (c.phase == GamePhase.inRound)
+                      Positioned(
+                        right: 0,
+                        bottom: panel,
+                        child: _countdown(),
+                      ),
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      height: panel,
+                      child: c.hasGuessedThisRound
+                          ? _lockedIn()
+                          : _guessGrid(panel),
+                    ),
+                    if (c.phase == GamePhase.revealed)
+                      _reveal(box.maxHeight * 0.52),
+                  ],
+                );
+              },
+            ),
+          ),
         ],
       ),
     );
   }
 
   Widget _topBar() {
-    final myScore = c.me?.score ?? 0;
     final colors = context.colors;
-    const pillPadding = EdgeInsets.symmetric(horizontal: 14, vertical: 6);
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          PillBadge(
-            color: colors.onSurfaceStrong,
-            fillAlpha: 0.1,
-            radius: 20,
-            padding: pillPadding,
-            child: Text(
-              'Round ${c.roundIndex + 1}',
-              style: TextStyle(
-                color: colors.onSurfaceStrong,
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
+    final progress = c.roundSeconds == 0 ? 0.0 : _timeLeft / c.roundSeconds;
+    final text = uiText(15, weight: 700, color: colors.paper);
+    return Column(
+      children: [
+        Band(
+          color: colors.ink,
+          padding: EdgeInsets.fromLTRB(
+            bandGutter,
+            MediaQuery.paddingOf(context).top + 4,
+            bandGutter,
+            12,
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Flexible(
+                child: Text(
+                  'Round ${c.roundIndex + 1} of ${c.totalRounds}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: text,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Text('${c.me?.score ?? 0} points', style: text),
+            ],
+          ),
+        ),
+        // The whole round is this one bar running out. Animated over the tick
+        // so it drains instead of stepping once a second.
+        ColoredBox(
+          color: colors.ink,
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: AnimatedFractionallySizedBox(
+              duration: const Duration(seconds: 1),
+              widthFactor: c.phase == GamePhase.inRound ? progress : 0,
+              child: Container(
+                height: 8,
+                color: _timeLeft <= 3 ? colors.vermilion : colors.marigold,
               ),
             ),
           ),
-          PillBadge(
-            color: colors.brand,
-            radius: 20,
-            padding: pillPadding,
-            child: Row(
-              children: [
-                Icon(Icons.star, color: colors.gold, size: 18),
-                const SizedBox(width: 4),
-                Text(
-                  '$myScore',
-                  style: TextStyle(
-                    color: colors.onSurfaceStrong,
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
-  Widget _timerBar() {
-    final progress = c.roundSeconds == 0 ? 0.0 : _timeLeft / c.roundSeconds;
+  Widget _countdown() {
     final colors = context.colors;
-    final color = _timeLeft <= 3 ? colors.brand : colors.accent;
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      child: Column(
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.timer, color: color, size: 20),
-              const SizedBox(width: 6),
-              Text(
-                '$_timeLeft',
-                style: TextStyle(
-                  color: color,
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: LinearProgressIndicator(
-              value: progress,
-              backgroundColor: colors.onSurfaceStrong.withValues(alpha: 0.1),
-              valueColor: AlwaysStoppedAnimation(color),
-              minHeight: 6,
+    final urgent = _timeLeft <= 3;
+    return Semantics(
+      label: '$_timeLeft seconds left',
+      child: ExcludeSemantics(
+        child: Container(
+          color: urgent ? colors.vermilion : colors.ink,
+          width: 96,
+          height: 72,
+          padding: const EdgeInsets.all(14),
+          child: Center(
+            child: FitText(
+              '$_timeLeft',
+              color: urgent ? colors.ink : colors.paper,
             ),
           ),
-        ],
+        ),
       ),
     );
   }
 
   Widget _photoArea() {
     final photo = c.currentPhoto;
-    final white = context.colors.onSurfaceStrong;
+    final colors = context.colors;
     // Uploads are full-resolution camera originals (~4032x3024 = ~48MB
     // decoded). Decoding at display size instead keeps a whole game inside
     // the image cache rather than thrashing it or OOMing on smaller devices.
     final decodeWidth =
-        ((MediaQuery.sizeOf(context).width - 48) *
+        (MediaQuery.sizeOf(context).width *
                 MediaQuery.devicePixelRatioOf(context))
             .round();
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 24),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(24),
-        color: Colors.black.withValues(alpha: 0.2),
-      ),
-      clipBehavior: Clip.antiAlias,
+    final waiting = Center(child: CircularProgressIndicator(color: colors.paper));
+    return ColoredBox(
+      color: colors.ink,
       child: photo == null
-          ? Center(child: CircularProgressIndicator(color: white))
+          ? waiting
           : Image.network(
               '$apiBase${photo.url}',
               fit: BoxFit.cover,
               width: double.infinity,
+              height: double.infinity,
               cacheWidth: decodeWidth,
               semanticLabel: 'Photo for round ${c.roundIndex + 1}',
               errorBuilder: (context, error, stack) => Center(
                 child: Icon(
                   Icons.broken_image,
-                  // 54%, not the palette's 50% faint — kept exact so the
-                  // refactor stays invisible.
-                  color: white.withValues(alpha: 0.54),
+                  color: colors.paperMuted,
                   size: 64,
                 ),
               ),
-              loadingBuilder: (context, child, progress) => progress == null
-                  ? child
-                  : Center(child: CircularProgressIndicator(color: white)),
+              loadingBuilder: (context, child, progress) =>
+                  progress == null ? child : waiting,
             ),
     );
   }
 
-  /// Shown right after the local player guesses, before the round reveals
-  /// the true owner to everyone. Only reports the player's own result --
-  /// no owner name, since that isn't known until the reveal.
-  Widget _instantResultBanner() {
-    final points = c.lastPointsEarned;
-    if (points == null) return const SizedBox.shrink();
-    return ResultBanner(
-      correct: points > 0,
-      message: points > 0 ? 'Correct! +$points points' : 'Guess submitted',
-    );
+  /// Taller as the room fills, so names stay big enough to hit under a
+  /// countdown. The bottom row runs under the home indicator.
+  double _panelHeight() {
+    final bottom = MediaQuery.paddingOf(context).bottom;
+    final rows = _rowsOf(c.players.length);
+    return (rows * 64.0 < 200 ? 200.0 : rows * 64.0) + bottom;
   }
 
-  /// The round reveal: names the owner, and shakes on a wrong guess.
-  Widget _resultBanner() {
-    final correct = (c.lastPointsEarned ?? 0) > 0;
-    return AnimatedBuilder(
-      animation: _shakeAnimation,
-      builder: (context, child) {
-        final shake = correct ? 0.0 : sin(_shakeAnimation.value * 3 * pi) * 8;
-        return Transform.translate(offset: Offset(shake, 0), child: child);
-      },
-      child: ResultBanner(
-        correct: correct,
-        message: correct
-            ? 'Correct! +${c.lastPointsEarned} points'
-            : "It was ${c.revealedOwnerName}'s photo",
-      ),
-    );
+  /// One column while names can stay huge, more once a stack would be too
+  /// thin to tap. The room caps at 12, which is 3 x 4.
+  int _columnsFor(int players) {
+    if (players <= 4) return 1;
+    return players <= 8 ? 2 : 3;
   }
 
-  Widget _guessButtons() {
+  int _rowsOf(int players) {
+    if (players == 0) return 1;
+    return (players / _columnsFor(players)).ceil();
+  }
+
+  Widget _guessGrid(double panel) {
     // You guess who took the photo — any player, including yourself, is a candidate.
     final candidates = c.players;
-    final white = context.colors.onSurfaceStrong;
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      child: Wrap(
-        spacing: 10,
-        runSpacing: 10,
-        alignment: WrapAlignment.center,
-        children: candidates.map((player) {
-          final disabled = c.hasGuessedThisRound || _timeExpired;
-          final isSelected =
-              c.hasGuessedThisRound && player.id == _myGuessedPlayerId;
-          const radius = BorderRadius.all(Radius.circular(14));
-          // One semantics node for the whole chip: the label, the button
-          // role and the tap live here, and the icon and text inside are
-          // excluded so a screen reader announces the chip once rather than
-          // reading out its parts.
-          return Semantics(
-            button: true,
-            enabled: !disabled,
-            selected: isSelected,
-            label: 'Guess ${player.name}',
-            onTap: disabled ? null : () => _guess(player),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              decoration: BoxDecoration(
-                color: isSelected
-                    ? player.color
-                    : player.color.withValues(alpha: disabled ? 0.05 : 0.15),
-                borderRadius: radius,
-                border: Border.all(
-                  color: player.color.withValues(alpha: isSelected ? 1.0 : 0.3),
-                  width: isSelected ? 2 : 1,
-                ),
-              ),
-              // Transparent Material *inside* the container, so the splash is
-              // painted above the chip's fill instead of underneath it. The
-              // padding moved in with it so the whole chip is the tap target.
-              child: Material(
-                type: MaterialType.transparency,
-                child: InkWell(
-                  onTap: disabled ? null : () => _guess(player),
-                  borderRadius: radius,
-                  excludeFromSemantics: true,
-                  child: ExcludeSemantics(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 18,
-                        vertical: 12,
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            player.avatar,
-                            color: isSelected ? white : player.color,
-                            size: 20,
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            player.name,
-                            style: TextStyle(
-                              color: isSelected
-                                  ? white
-                                  : white.withValues(alpha: 0.9),
-                              fontSize: 15,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          if (isSelected) ...[
-                            const SizedBox(width: 6),
-                            Icon(Icons.check_circle, color: white, size: 16),
-                          ],
-                        ],
-                      ),
+    final columns = _columnsFor(candidates.length);
+    final bottom = MediaQuery.paddingOf(context).bottom;
+    final rows = <List<GamePlayer>>[
+      for (var i = 0; i < candidates.length; i += columns)
+        candidates.skip(i).take(columns).toList(),
+    ];
+    final rowHeight = (panel - bottom) / rows.length;
+    return Column(
+      children: [
+        for (final (i, row) in rows.indexed)
+          SizedBox(
+            height: i == rows.length - 1 ? rowHeight + bottom : rowHeight,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                for (final player in row)
+                  Expanded(
+                    child: _guessBand(
+                      player,
+                      bottomInset: i == rows.length - 1 ? bottom : 0,
                     ),
                   ),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _guessBand(GamePlayer player, {required double bottomInset}) {
+    final colors = context.colors;
+    final disabled = _timeExpired || c.phase != GamePhase.inRound;
+    return PlayerBand(
+      name: player.name,
+      ink: disabled
+          ? PlayerInk(colors.ink, colors.paperMuted)
+          : c.players.inkOf(player.id),
+      actionLabel: 'Guess ${player.name}',
+      bottomInset: bottomInset,
+      onTap: disabled ? null : () => _guess(player),
+    );
+  }
+
+  /// After a guess the panel becomes the one band that was picked, which is
+  /// also where a correct answer is announced. A wrong one only says it landed:
+  /// the owner isn't known until the reveal.
+  Widget _lockedIn() {
+    final points = c.lastPointsEarned;
+    final guessed = c.players.where((p) => p.id == _myGuessedPlayerId);
+    return PlayerBand(
+      name: guessed.isEmpty ? 'Locked in' : guessed.first.name,
+      ink: c.players.inkOf(_myGuessedPlayerId),
+      leading: 'You blamed',
+      trailing: points == null
+          ? null
+          : points > 0
+          ? 'Correct! +$points points'
+          : 'Guess submitted',
+      bottomInset: MediaQuery.paddingOf(context).bottom,
+    );
+  }
+
+  /// The round's one loud moment: the owner's band slams up over the guesses.
+  ///
+  /// Keyed by round so each reveal runs again, and instant for anyone who asked
+  /// the system for reduced motion.
+  Widget _reveal(double height) {
+    final ink = c.players.inkOf(c.revealedOwnerId);
+    final text = uiText(18, weight: 800, color: ink.on);
+    final points = c.lastPointsEarned ?? 0;
+    final guessed = c.players.where((p) => p.id == _myGuessedPlayerId);
+    final String outcome;
+    if (points > 0) {
+      outcome = 'Correct! +$points points';
+    } else if (guessed.isNotEmpty) {
+      outcome = 'You blamed ${guessed.first.name}';
+    } else if (c.hasGuessedThisRound) {
+      outcome = 'Wrong guess';
+    } else {
+      outcome = 'No guess this round';
+    }
+    return Positioned(
+      left: 0,
+      right: 0,
+      bottom: 0,
+      height: height,
+      child: TweenAnimationBuilder<double>(
+        key: ValueKey(c.roundIndex),
+        tween: Tween(begin: 1, end: 0),
+        duration: MediaQuery.disableAnimationsOf(context)
+            ? Duration.zero
+            : const Duration(milliseconds: 260),
+        curve: Curves.easeOutQuart,
+        builder: (context, offset, child) => Transform.translate(
+          offset: Offset(0, height * offset),
+          child: child,
+        ),
+        child: Band(
+          color: ink.fill,
+          padding: EdgeInsets.fromLTRB(
+            bandGutter,
+            16,
+            bandGutter,
+            MediaQuery.paddingOf(context).bottom + 16,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text('It was', style: text),
+              const SizedBox(height: 12),
+              Expanded(
+                child: FitText(
+                  c.revealedOwnerName.toUpperCase(),
+                  color: ink.on,
+                  semanticsLabel: c.revealedOwnerName,
                 ),
               ),
-            ),
-          );
-        }).toList(),
+              const SizedBox(height: 16),
+              Text(outcome, style: text),
+            ],
+          ),
+        ),
       ),
     );
   }

@@ -1,57 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
   <title>Photo Blame mark</title>
-  <defs>
-    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#E4EAF6"/><stop offset="1" stop-color="#AEBBD7"/>
-    </linearGradient>
-    <filter id="lift" x="-40%" y="-40%" width="200%" height="200%">
-      <feDropShadow dx="0" dy="18" stdDeviation="22" flood-color="#050A18" flood-opacity="0.55"/>
-    </filter>
-  </defs>
-  <g transform="translate(512 512) scale(0.82) translate(-512 -512)">
-    <g fill="#FFFFFF" transform="translate(748 383) rotate(172) scale(1.57)"><rect x="-20" y="-5" width="40" height="10" rx="5"/></g>
-    <g fill="#4ECDC4" transform="translate(312 232) rotate(68) scale(1.41)"><rect x="-21" y="-12" width="42" height="24" rx="6"/></g>
-    <g fill="#FFD700" transform="translate(215 316) rotate(255) scale(1.51)"><rect x="-21" y="-12" width="42" height="24" rx="6"/></g>
-    <g fill="#FFD700" transform="translate(378 247) rotate(14) scale(1.53)"><rect x="-21" y="-12" width="42" height="24" rx="6"/></g>
-    <g stroke="#FFD700" fill="none" transform="translate(442 479) rotate(213) scale(1.42)"><path d="M -19 10 Q -6 -17 11 -6 Q 23 0 18 16" fill="none" stroke-width="10" stroke-linecap="round"/></g>
-    <g fill="#4ECDC4" transform="translate(499 830) rotate(281) scale(1.88)"><rect x="-21" y="-12" width="42" height="24" rx="6"/></g>
-    <g fill="#FFFFFF" transform="translate(487 498) rotate(12) scale(1.64)"><circle cx="0" cy="0" r="10"/></g>
-    <g fill="#4ECDC4" transform="translate(892 926) rotate(44) scale(1.72)"><rect x="-20" y="-5" width="40" height="10" rx="5"/></g>
-    <g fill="#4ECDC4" transform="translate(654 620) rotate(90) scale(1.67)"><rect x="-21" y="-12" width="42" height="24" rx="6"/></g>
-    <g fill="#FFFFFF" transform="translate(720 448) rotate(220) scale(1.83)"><path d="M -23 -8 Q -2 -22 21 -12 L 23 8 Q 0 -3 -21 12 Z"/></g>
-    <g fill="#4ECDC4" transform="translate(645 745) rotate(262) scale(1.73)"><rect x="-20" y="-5" width="40" height="10" rx="5"/></g>
-    <g fill="#FFD700" transform="translate(592 720) rotate(0) scale(1.62)"><rect x="-20" y="-5" width="40" height="10" rx="5"/></g>
-    <g stroke="#4ECDC4" fill="none" transform="translate(228 624) rotate(105) scale(1.68)"><path d="M -19 10 Q -6 -17 11 -6 Q 23 0 18 16" fill="none" stroke-width="10" stroke-linecap="round"/></g>
-    <g fill="#FFD700" transform="translate(408 505) rotate(329) scale(1.83)"><path d="M -23 -8 Q -2 -22 21 -12 L 23 8 Q 0 -3 -21 12 Z"/></g>
-    <g fill="#4ECDC4" transform="translate(213 914) rotate(207) scale(1.85)"><rect x="-21" y="-12" width="42" height="24" rx="6"/></g>
-    <g fill="#4ECDC4" transform="translate(839 601) rotate(299) scale(1.60)"><rect x="-21" y="-12" width="42" height="24" rx="6"/></g>
-    <g fill="#4ECDC4" transform="translate(344 753) rotate(87) scale(1.50)"><rect x="-21" y="-12" width="42" height="24" rx="6"/></g>
-    <g fill="#4ECDC4" transform="translate(806 660) rotate(4) scale(1.84)"><path d="M -23 -8 Q -2 -22 21 -12 L 23 8 Q 0 -3 -21 12 Z"/></g>
-    <g transform="translate(250 590) rotate(-25) scale(1.06)" filter="url(#lift)"><g><rect x="-200" y="-225" width="400" height="450" rx="46" fill="#FFFFFF"/>
-    <rect x="-164" y="-189" width="328" height="300" rx="22" fill="#C6D0E2"/>
-    <rect x="-164" y="140" width="206" height="26" rx="13" fill="#DDE3EE"/></g></g>
-    <g transform="translate(774 590) rotate(25) scale(1.06)" filter="url(#lift)"><g><rect x="-200" y="-225" width="400" height="450" rx="46" fill="#FFFFFF"/>
-    <rect x="-164" y="-189" width="328" height="300" rx="22" fill="#C6D0E2"/>
-    <rect x="-164" y="140" width="206" height="26" rx="13" fill="#DDE3EE"/></g></g>
-    <g transform="translate(512 512) rotate(-3) scale(1.20)" filter="url(#lift)"><g><rect x="-200" y="-225" width="400" height="450" rx="46" fill="#FFFFFF"/>
-    <rect x="-164" y="-189" width="328" height="300" rx="22" fill="url(#sky)"/>
-    <circle cx="-84" cy="-112" r="34" fill="#E94560"/>
-    <path d="M -164 111 L -52 -26 L 26 56 L 78 8 L 164 111 Z" fill="#7C88AD"/>
-    <path d="M -164 111 L -100 34 L -34 111 Z" fill="#A2AECB"/>
-    <rect x="-164" y="140" width="206" height="26" rx="13" fill="#D8DFEC"/></g></g>
-    <g fill="#4ECDC4" transform="translate(466 728) rotate(177) scale(1.75)"><circle cx="0" cy="0" r="10"/></g>
-    <g fill="#4ECDC4" transform="translate(104 201) rotate(307) scale(1.63)"><rect x="-20" y="-5" width="40" height="10" rx="5"/></g>
-    <g fill="#FFFFFF" transform="translate(532 588) rotate(196) scale(1.77)"><circle cx="0" cy="0" r="10"/></g>
-    <g fill="#FFFFFF" transform="translate(118 426) rotate(285) scale(1.62)"><rect x="-21" y="-12" width="42" height="24" rx="6"/></g>
-    <g fill="#FFD700" transform="translate(340 313) rotate(210) scale(1.66)"><rect x="-21" y="-12" width="42" height="24" rx="6"/></g>
-    <g fill="#FFD700" transform="translate(345 158) rotate(97) scale(1.64)"><circle cx="0" cy="0" r="10"/></g>
-    <g fill="#FFFFFF" transform="translate(850 627) rotate(160) scale(1.40)"><rect x="-20" y="-5" width="40" height="10" rx="5"/></g>
-    <g fill="#4ECDC4" transform="translate(404 324) rotate(211) scale(1.52)"><rect x="-20" y="-5" width="40" height="10" rx="5"/></g>
-    <g fill="#FFFFFF" transform="translate(250 280) rotate(249) scale(1.48)"><rect x="-20" y="-5" width="40" height="10" rx="5"/></g>
-    <g fill="#FFD700" transform="translate(449 795) rotate(331) scale(1.46)"><circle cx="0" cy="0" r="10"/></g>
-    <g fill="#4ECDC4" transform="translate(841 148) rotate(337) scale(1.40)"><path d="M -23 -8 Q -2 -22 21 -12 L 23 8 Q 0 -3 -21 12 Z"/></g>
-    <g fill="#4ECDC4" transform="translate(171 270) rotate(169) scale(1.62)"><rect x="-21" y="-12" width="42" height="24" rx="6"/></g>
-    <g stroke="#4ECDC4" fill="none" transform="translate(740 656) rotate(74) scale(1.57)"><path d="M -19 10 Q -6 -17 11 -6 Q 23 0 18 16" fill="none" stroke-width="10" stroke-linecap="round"/></g>
-    <g fill="#FFFFFF" transform="translate(480 739) rotate(340) scale(1.42)"><path d="M -23 -8 Q -2 -22 21 -12 L 23 8 Q 0 -3 -21 12 Z"/></g>
-  </g>
+  <path fill="#000000" d="M60 484H361.2V382.7H648.4Q826.7 382.7 895.4 338.5Q964 294.4 964 220.8Q964 147.9 895.8 103.9Q827.6 60 648.4 60H60ZM361.2 279.2V163.5H565.2Q616.5 163.5 641.4 175.5Q666.2 187.4 666.2 221.2Q666.2 255.3 641.8 267.2Q617.3 279.2 565.2 279.2Z"/>
+  <path fill="#000000" d="M60 964H669.6Q859.6 964 911.8 930.4Q964 896.7 964 844.2Q964 796.5 907.3 770.3Q850.6 744.1 774.6 742Q851.4 740.5 893.3 712.7Q935.2 684.9 935.2 644.1Q935.2 602.2 880.6 571.1Q825.9 540 637.7 540H60ZM353.9 860.5V788.7H603.5Q649.9 788.7 660.2 797.1Q670.5 805.6 670.5 825.1Q670.5 844.7 660.2 852.6Q649.9 860.5 603.9 860.5ZM353.9 700.3V643.1H579.7Q616.2 643.1 627.3 649.6Q638.4 656 638.4 670Q638.4 684.5 627.7 692.4Q617 700.3 578.9 700.3Z"/>
 </svg>

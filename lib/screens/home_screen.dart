@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../state/game_controller.dart';
 import '../theme/app_theme.dart';
-import '../ui/app_buttons.dart';
+import '../ui/band.dart';
 import '../ui/error_text.dart';
-import '../ui/gradient_scaffold.dart';
+import '../ui/fit_text.dart';
 import 'lobby_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -75,115 +75,137 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    final text = Theme.of(context).textTheme;
-    return GradientScaffold(
-      gradient: AppGradient.diagonal,
-      child: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(28),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const SizedBox(height: 20),
-              Image.asset('assets/branding/logo_mark.png',
-                  width: 96, height: 96),
-              const SizedBox(height: 16),
-              Text(
-                'PHOTO\nBLAME',
-                textAlign: TextAlign.center,
-                style: text.displayLarge,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Guess whose photo it is!',
-                style: TextStyle(fontSize: 15, color: colors.onSurfaceMuted),
-              ),
-              const SizedBox(height: 36),
-              _textField(_nameController, 'Your name', Icons.person),
-              const SizedBox(height: 28),
-              if (_error != null) ...[
-                Text(
-                  _error!,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: colors.brand),
-                ),
-                const SizedBox(height: 12),
-              ],
-              if (_busy)
-                Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: CircularProgressIndicator(color: colors.brand),
-                )
-              else ...[
-                PrimaryButton(
-                  label: 'CREATE GAME',
-                  icon: Icons.add,
-                  onPressed: _createRoom,
-                  height: 56,
-                  radius: 16,
-                ),
-                const SizedBox(height: 24),
-                Row(
-                  children: [
-                    Expanded(
-                        child: Divider(
-                            color: colors.onSurfaceStrong
-                                .withValues(alpha: 0.2))),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      child: Text('OR JOIN',
-                          style: TextStyle(
-                              color: colors.onSurfaceStrong
-                                  .withValues(alpha: 0.4),
-                              fontSize: 12,
-                              letterSpacing: 2)),
+    final top = MediaQuery.paddingOf(context).top;
+    return PosterScaffold(
+      top: colors.marigold,
+      background: colors.paper,
+      resizeForKeyboard: true,
+      body: Column(
+        children: [
+          // The title takes whatever the form and the keyboard leave, which is
+          // what keeps the fields on screen without a scroll view: the two
+          // lines simply get shorter when the keyboard comes up.
+          Expanded(
+            child: Column(
+              children: [
+                Expanded(
+                  child: Band(
+                    color: colors.marigold,
+                    padding: EdgeInsets.fromLTRB(
+                      bandGutter,
+                      top + 4,
+                      bandGutter,
+                      14,
                     ),
-                    Expanded(
-                        child: Divider(
-                            color: colors.onSurfaceStrong
-                                .withValues(alpha: 0.2))),
-                  ],
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Guess whose photo it is',
+                          style: uiText(16, weight: 700, color: colors.ink),
+                        ),
+                        const SizedBox(height: 12),
+                        Expanded(
+                          child: FitText(
+                            'PHOTO',
+                            color: colors.ink,
+                            semanticsLabel: 'Photo Blame',
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
-                const SizedBox(height: 20),
-                _textField(_codeController, 'Game code', Icons.tag,
-                    caps: true),
-                const SizedBox(height: 16),
-                SecondaryButton(
-                  label: 'JOIN GAME',
-                  icon: Icons.login,
-                  onPressed: _joinRoom,
-                  height: 52,
-                  radius: 16,
+                Expanded(
+                  child: Band(
+                    color: colors.vermilion,
+                    padding: const EdgeInsets.fromLTRB(
+                      bandGutter,
+                      14,
+                      bandGutter,
+                      14,
+                    ),
+                    child: ExcludeSemantics(
+                      child: FitText('BLAME', color: colors.ink),
+                    ),
+                  ),
                 ),
               ],
+            ),
+          ),
+          if (_error != null)
+            Band(
+              color: colors.ink,
+              padding: const EdgeInsets.symmetric(
+                horizontal: bandGutter,
+                vertical: 12,
+              ),
+              child: Text(
+                _error!,
+                style: uiText(15, weight: 600, color: colors.paper),
+              ),
+            ),
+          _textField(
+            _nameController,
+            'Your name',
+            capitalization: TextCapitalization.words,
+          ),
+          BandButton(
+            label: _busy ? 'Starting…' : 'Start a game',
+            onPressed: _busy ? null : _createRoom,
+            color: colors.ink,
+            textColor: colors.paper,
+            busy: _busy,
+          ),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Expanded(
+                child: _textField(
+                  _codeController,
+                  'Game code',
+                  capitalization: TextCapitalization.characters,
+                  last: true,
+                ),
+              ),
+              SizedBox(
+                width: 112,
+                child: BandButton(
+                  label: 'Join',
+                  onPressed: _busy ? null : _joinRoom,
+                  color: colors.cobalt,
+                  textColor: colors.paper,
+                  last: true,
+                ),
+              ),
             ],
           ),
-        ),
+        ],
       ),
     );
   }
 
   Widget _textField(
     TextEditingController controller,
-    String hint,
-    IconData icon, {
-    bool caps = false,
+    String hint, {
+    required TextCapitalization capitalization,
+    bool last = false,
   }) {
-    final white = context.colors.onSurfaceStrong;
-    return TextField(
-      controller: controller,
-      textCapitalization:
-          caps ? TextCapitalization.characters : TextCapitalization.words,
-      style: TextStyle(color: white),
-      decoration: InputDecoration(
-        hintText: hint,
-        hintStyle: TextStyle(color: white.withValues(alpha: 0.4)),
-        prefixIcon: Icon(icon, color: white.withValues(alpha: 0.6)),
-        filled: true,
-        fillColor: white.withValues(alpha: 0.08),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: BorderSide.none,
+    final colors = context.colors;
+    final inset = last ? MediaQuery.paddingOf(context).bottom : 0.0;
+    return Band(
+      color: colors.paper,
+      height: 68 + inset,
+      padding: EdgeInsets.fromLTRB(bandGutter, 0, bandGutter, inset),
+      child: Center(
+        child: TextField(
+          controller: controller,
+          textCapitalization: capitalization,
+          style: uiText(21, weight: 700, color: colors.ink),
+          decoration: InputDecoration.collapsed(
+            hintText: hint,
+            hintStyle: uiText(21, weight: 700, color: colors.inkMuted),
+          ),
         ),
       ),
     );

@@ -70,10 +70,3 @@ for spec in mdpi:120 hdpi:180 xhdpi:240 xxhdpi:360 xxxhdpi:480; do
 done
 "${RAST[@]}" "$SRC/logo_mark.svg" alpha "${launch[@]}"
 echo "launch   iOS 1x/2x/3x + Android across 5 densities"
-
-# --- In-app asset ---------------------------------------------------------
-# Flutter has no SVG renderer without a package, so the home screen uses a PNG.
-# Resolution-aware variants, displayed at 96 logical pixels.
-"${RAST[@]}" "$SRC/logo_mark.svg" alpha \
-  "$SRC/logo_mark.png:96" "$SRC/2.0x/logo_mark.png:192" "$SRC/3.0x/logo_mark.png:288"
-echo "in-app   logo_mark.png at 1x/2x/3x"

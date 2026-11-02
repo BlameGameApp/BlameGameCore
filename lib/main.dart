@@ -1,11 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'config.dart';
 import 'screens/home_screen.dart';
 import 'theme/app_theme.dart';
-import 'ui/gradient_scaffold.dart';
+import 'ui/band.dart';
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  // Every screen is a tall stack of bands. Sideways there is no height to put
+  // them in, and the lobby alone needs more than a landscape phone has.
+  SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
   runApp(const PhotoBlameApp());
 }
 
@@ -19,6 +24,13 @@ class PhotoBlameApp extends StatelessWidget {
       title: 'Photo Blame',
       debugShowCheckedModeBanner: false,
       theme: buildAppTheme(),
+      // Poster type ignores the system text size, since it's already as big as
+      // its band. Small text honours it up to the point where a full lobby on
+      // a small phone would run out of height.
+      builder: (context, child) => MediaQuery.withClampedTextScaling(
+        maxScaleFactor: 1.3,
+        child: child!,
+      ),
       // A build with no usable backend can't do anything at all, so it says so
       // on the first screen instead of letting every action fail one spinner
       // at a time — which is what a TestFlight tester would otherwise report.
@@ -37,27 +49,19 @@ class _MisconfiguredScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    return GradientScaffold(
-      gradient: AppGradient.diagonal,
-      child: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32),
+    return PosterScaffold(
+      top: colors.vermilion,
+      body: Band(
+        color: colors.vermilion,
+        padding: const EdgeInsets.all(bandGutter),
+        child: SafeArea(
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.end,
             children: [
-              Icon(Icons.settings_ethernet, size: 56, color: colors.brand),
-              const SizedBox(height: 20),
-              Text(
-                'Not configured',
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
+              Text('Not configured', style: uiText(34, weight: 900)),
               const SizedBox(height: 12),
-              Text(
-                problem,
-                textAlign: TextAlign.center,
-                style: TextStyle(color: colors.onSurfaceMuted, fontSize: 15),
-              ),
+              Text(problem, style: uiText(16)),
             ],
           ),
         ),

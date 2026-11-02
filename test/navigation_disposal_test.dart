@@ -69,7 +69,7 @@ void main() {
     // Home -> Lobby.
     await tester.tap(find.text('GO'));
     await tester.pumpAndSettle();
-    expect(find.text('LOBBY'), findsOneWidget);
+    expect(find.text('Game code'), findsOneWidget);
 
     // The backend starts the game: the lobby pushReplacement's the game screen,
     // which completes the lobby route and resolves the owner's `await push`.
@@ -88,7 +88,7 @@ void main() {
     // dispose() closes the socket, so an open socket means the controller is
     // still alive for the game screen that is now listening to it.
     expect(h.socket.closed, isFalse);
-    expect(find.text('LOBBY'), findsNothing);
+    expect(find.text('Game code'), findsNothing);
   });
 
   testWidgets('the controller is still disposed once the flow really unwinds',

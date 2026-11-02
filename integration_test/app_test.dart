@@ -23,6 +23,8 @@ import 'package:integration_test/integration_test.dart';
 import 'package:photo_manager/photo_manager.dart';
 import 'package:photo_blame/config.dart';
 import 'package:photo_blame/main.dart' as app;
+import 'package:photo_blame/screens/lobby_screen.dart';
+import 'package:photo_blame/ui/fit_text.dart';
 
 /// Pumps in slices until [condition] holds, instead of `pumpAndSettle`.
 ///
@@ -46,21 +48,18 @@ bool _visible(Finder f) => f.evaluate().isNotEmpty;
 
 /// The five-character room code shown on the lobby's game-code card.
 ///
-/// Read out of that card specifically: "LOBBY" is also five upper-case
-/// characters, and it is the screen's own heading.
+/// The code is the lobby's first poster line. Scoped to the lobby because the
+/// home screen is still in the tree during the transition, and its "PHOTO"
+/// looks exactly like a code. Names come after it, and "GUEST" would too.
 String readRoomCode(WidgetTester tester) {
   final codes = tester
-      .widgetList<Text>(
+      .widgetList<FitText>(
         find.descendant(
-          of: find.ancestor(
-            of: find.text('Game Code: '),
-            matching: find.byType(Row),
-          ).first,
-          matching: find.byType(Text),
+          of: find.byType(LobbyScreen),
+          matching: find.byType(FitText),
         ),
       )
-      .map((t) => t.data)
-      .whereType<String>()
+      .map((t) => t.text)
       .where((s) => RegExp(r'^[A-Z0-9]{5}$').hasMatch(s))
       .toList();
   expect(codes, isNotEmpty, reason: 'the lobby should show a room code');
@@ -177,11 +176,11 @@ void main() {
     await tester.pumpAndSettle();
 
     // --- home --------------------------------------------------------------
-    expect(find.text('PHOTO\nBLAME'), findsOneWidget);
+    expect(find.text('PHOTO'), findsOneWidget);
     await tester.enterText(find.byType(TextField).first, 'Host');
     await tester.pump();
-    await tester.tap(find.text('CREATE GAME'));
-    await pumpUntil(tester, () => _visible(find.textContaining('Game Code')),
+    await tester.tap(find.text('Start a game'));
+    await pumpUntil(tester, () => _visible(find.byType(LobbyScreen)),
         reason: 'the lobby');
 
     final code = readRoomCode(tester);
@@ -191,18 +190,18 @@ void main() {
     // photo_manager, the permission and the simulator's photo library are all
     // real here, which is the part no widget test can stand in for.
     if (await photoAccessGranted(tester)) {
-      await tester.tap(find.textContaining('ADD PHOTOS'));
+      await tester.tap(find.textContaining('dd photos'));
       // A snackbar instead means the sampler refused (empty roll, revoked
       // access), which would otherwise surface only as a bare timeout.
       await pumpUntil(
         tester,
-        () => _visible(find.text('USE THESE')) || currentSnack(tester) != null,
+        () => _visible(find.text('Use these')) || currentSnack(tester) != null,
         timeout: const Duration(seconds: 60),
         reason: 'the photo preview',
       );
       final refusal = currentSnack(tester);
       expect(refusal, isNull, reason: 'sampling photos was refused: $refusal');
-      await tester.tap(find.text('USE THESE'));
+      await tester.tap(find.text('Use these'));
       await pumpUntil(tester, () => _visible(find.textContaining('Added')),
           timeout: const Duration(seconds: 60), reason: 'the upload to finish');
     } else {
@@ -219,13 +218,13 @@ void main() {
     final other = RemotePlayer(code);
     addTearDown(other.close);
     await other.join('Guest');
-    await pumpUntil(tester, () => _visible(find.text('Guest')),
+    await pumpUntil(tester, () => _visible(find.text('GUEST')),
         reason: "the roster to show the player who joined");
     await other.uploadPhoto();
 
     // START only unlocks once two different people have contributed, which is
     // the server's rule as well as the button's.
-    await pumpUntil(tester, () => _visible(find.text('START GAME')),
+    await pumpUntil(tester, () => _visible(find.text('Start game')),
         reason: 'START to unlock once two players have photos');
 
     // Shortest game the lobby allows, so the round timer doesn't dominate.
@@ -237,26 +236,22 @@ void main() {
         reason: 'the round count to reach 1');
 
     // --- the game ---------------------------------------------------------
-    await tester.tap(find.text('START GAME'));
+    await tester.tap(find.text('Start game'));
     // Wait for the lobby to be *gone*, not just for the game to appear: both
     // routes are in the tree during the transition, and a chip tapped on the
     // outgoing one lands off-screen and does nothing.
     await pumpUntil(
       tester,
       () => _visible(find.textContaining('Round 1')) &&
-          !_visible(find.text('Game Code: ')),
+          !_visible(find.byType(LobbyScreen)),
       reason: 'the game screen',
     );
 
-    // Guessing is the whole point; the chip is the other player's name.
-    // Scoped to the chip row: the lobby roster tile carries the same name.
-    final guestChip = find.descendant(
-      of: find.byType(Wrap),
-      matching: find.text('Guest'),
-    );
-    await pumpUntil(tester, () => _visible(guestChip),
-        reason: 'the guess chips');
-    await tester.tap(guestChip);
+    // Guessing is the whole point; the band is the other player's name.
+    final guestBand = find.text('GUEST');
+    await pumpUntil(tester, () => _visible(guestBand),
+        reason: 'the guess bands');
+    await tester.tap(guestBand);
     // The instant banner is the proof the guess actually reached the server;
     // without it the round would simply time out and still reveal.
     await pumpUntil(
@@ -267,9 +262,8 @@ void main() {
     );
 
     // --- results ----------------------------------------------------------
-    await pumpUntil(tester, () => _visible(find.text('LEADERBOARD')),
+    await pumpUntil(tester, () => _visible(find.text('Leave game')),
         timeout: const Duration(seconds: 60), reason: 'the leaderboard');
-    expect(find.text('WINNER'), findsOneWidget);
-    expect(find.text('Host'), findsWidgets);
+    expect(find.text('HOST'), findsWidgets);
   });
 }

@@ -16,14 +16,15 @@ guesses; rounds tally into a final leaderboard.
 Layered: `config → models → services → state → screens`, with `theme/` and
 `ui/` holding presentation shared across screens.
 - `config.dart` — `apiBase` from `String.fromEnvironment('API_BASE')`; `wsBase` derived by swapping `http`→`ws`. The **default is build-mode dependent**: localhost in debug/profile so `flutter run` just works, and **empty in release**, because an IPA quietly aimed at the device's own loopback fails every call with nothing to diagnose it by (and iOS ATS blocks cleartext HTTP regardless). `apiBaseProblem` turns that, and any non-https release base, into a "Not configured" screen at startup instead of a spinner. A release build must carry `--dart-define=API_BASE=https://…`.
-- `models/game_models.dart` — `GamePlayer`, `PhotoInfo`, and a sealed `GameEvent` hierarchy (deserialize-only). **Pure Dart, no Flutter import** — per-player colours/avatars live in `ui/player_cosmetics.dart` instead, derived from a platform-stable hash (`String.hashCode` differs between the VM and dart2js, so the same player looked different on iOS and web).
+- `models/game_models.dart` — `GamePlayer`, `PhotoInfo`, and a sealed `GameEvent` hierarchy (deserialize-only). **Pure Dart, no Flutter import** — per-player colours live in `ui/player_cosmetics.dart` instead, seated by join order so a full room of 12 never shares one. An id no longer in the room falls back to a platform-stable hash (`String.hashCode` differs between the VM and dart2js, so the same player looked different on iOS and web).
 - `services/api_client.dart` — thin `http` REST wrapper; injectable `http.Client` for tests.
 - `services/game_socket.dart` — `web_socket_channel`, exposes `Stream<GameEvent>`. A `GameSocketFactory` typedef is injected into the controller so tests can drive state with a fake socket.
 - `state/game_controller.dart` — `ChangeNotifier` (no Provider/Riverpod/Bloc). One instance is created in `HomeScreen`, passed by constructor down through Lobby → Game → Results, and **disposed by `HomeScreen` when the pushed route returns** (it awaits the `push`) — otherwise every game leaks a live WebSocket. Identity lives in a non-nullable `GameSession` created at join time, so there are no `roomCode!` force-unwraps and a half-joined controller is unrepresentable. `connectionError` + `reconnect()` surface a dropped socket rather than freezing the game.
-- `theme/app_theme.dart` — `buildAppTheme()` plus an `AppColors` `ThemeExtension`; read it via `context.colors`.
-- `ui/` — cross-screen presentation: `player_cosmetics.dart`, `result_banner.dart`, `connection_banner.dart`, `snack.dart`, `error_text.dart` (`friendlyError` unwraps the backend's `{"detail": ...}` so raw JSON never reaches a player), and:
+- `theme/app_theme.dart` — `buildAppTheme()` plus an `AppColors` `ThemeExtension`; read it via `context.colors`. `uiText()` is the only way to style interface text; see **Design**.
+- `ui/` — cross-screen presentation: `player_cosmetics.dart`, `connection_banner.dart`, `snack.dart`, `error_text.dart` (`friendlyError` unwraps the backend's `{"detail": ...}` so raw JSON never reaches a player), and:
   - `controller_screen.dart` — the `GameControllerScreen` mixin every controller-driven screen uses. It owns the listener wiring, the `mounted` guard (the callback fires from the WebSocket stream, so `Navigator.of(context)` can throw) and `navigateOnce`, which latches route pushes so an event burst can't push the same screen twice. Each of those was hand-rolled in three screens; TASK-46 was the latch going wrong.
-  - `tinted_card.dart` — paints its fill through a **`Material`**, not a `BoxDecoration`. Ink splashes and `ListTile` backgrounds are drawn on the nearest `Material` ancestor, so a decorated box over it swallows them — and Flutter asserts on exactly that arrangement.
+  - `band.dart` — `PosterScaffold`, `Band`, `BandButton` and `PlayerBand`, which every screen is built from. Bands paint their fill through a **`Material`**, not a `BoxDecoration`. Ink highlights are drawn on the nearest `Material` ancestor, so a decorated box over it swallows them — and Flutter asserts on exactly that arrangement.
+  - `fit_text.dart` — `FitText`, the poster line; see **Design**.
 - `screens/` — `home`, `lobby`, `game`, `results`.
 - `main.dart` — `PhotoBlameApp`, plus the misconfigured-build screen `config.dart` gates on.
 
@@ -44,7 +45,7 @@ Pure logic under thin I/O layers:
 ```sh
 flutter pub get
 flutter analyze
-flutter test                     # currently 105 tests
+flutter test                     # currently 119 tests
 flutter run                      # needs a simulator/device
 
 # On a real simulator, against a real backend (start it first):
@@ -82,20 +83,15 @@ Every launcher icon is generated — never hand-edit the PNGs, regenerate them.
   can render the SVG but always writes an alpha channel, which the iOS AppIcon set is
   not allowed to have. Drawing through an explicit `CGContext` is what makes the iOS
   PNGs opaque without a lossy JPEG round-trip.
-- `logo_mark.png` (+ `2.0x/`, `3.0x/`) is generated too — the home screen shows the mark,
-  and Flutter cannot render SVG without a package.
-- Colours come from `AppColors.dark` only. The icon is three photo cards fanned like a
-  hand, on a brand-red sunburst, under sixty pieces of confetti. Two consequences:
-  **red is not in the confetti palette** (a red chip on a red sunburst is invisible —
-  the pieces are teal, gold, white and a dark navy), and `logo_mark.svg` keeps only the
-  largest dozen pieces, because sixty is texture at 1024px and mush at the 96px the
-  home screen draws the mark at.
+- Colours come from `AppColors.flat` only. The icon is two stacked bands, marigold over
+  vermilion, each holding a letter stretched to fill it: a "P" and a "B". The SVGs are
+  flat fills and outlines lifted from Anybody, so they need no font to render and stay
+  legible at 60px. There is no in-app logo: the home screen's title is the wordmark.
 - The **launch screens** are generated by the same script. They are drawn by the OS
   before any Dart runs, so they cannot read `AppColors`: the iOS storyboard and
-  `android/app/src/main/res/values/colors.xml` each hardcode `bgTop` (`#1A1A2E`) and
-  have to be kept in step with `app_theme.dart` by hand. Both were the untouched
-  Flutter default — a white ground behind a 1x1 transparent image — so every cold
-  start flashed white before the dark UI appeared.
+  `android/app/src/main/res/values/colors.xml` each hardcode `marigold` (`#FFC200`) and
+  have to be kept in step with `app_theme.dart` by hand. Marigold because it's the home
+  screen's top band, so a cold start runs straight into the first frame.
 
 ## iOS release checklist (what TestFlight needs)
 
@@ -148,6 +144,36 @@ backlog browser                  # web UI
   `GameController.canStart` and shows real per-player readiness from `photo_count`.
 - Uploads are capped (8 MB, 10 per player, JPEG/PNG magic bytes checked, lobby only);
   rooms cap at 12 players; names are 1–24 chars.
+
+## Design
+
+The app is a **wood-type poster that the players are printed on**. Every player is a
+flat band of ink with their name set edge to edge; every screen is a stack of those
+bands. Keep to the system rather than adding to it:
+
+- **Flat, full-bleed bands only.** No gradients, shadows, rounded corners, cards, pills,
+  outlines or avatars. Bands touch; there are no gaps or dividers. They run behind the
+  status bar and home indicator, so each one handles its own inset (`BandButton(last:)`,
+  `PlayerBand(topInset:, bottomInset:)`), not a `SafeArea` around the screen.
+- **Names and codes are `FitText`.** It fills its box exactly: the band's height sets the
+  size, Anybody's `wdth` axis (50–150) takes up the width, and past either end of the
+  axis the line is stretched. "AL" and "MAXIMILIAN VON HOHENZOLL" are the same block of
+  colour. This is the thing the design is known by; don't replace it with a `FittedBox`.
+- **Two type roles only:** `FitText` for poster lines and `uiText()` for everything else,
+  in sentence case. No tracked-out caps labels. **Anybody's default instance is wght 100**:
+  a style that names the family without a `FontVariation` renders as a hairline, and
+  `fontWeight` doesn't move the axis, it fakes a bold over the thin master. That's why
+  `uiText()` exists and why the theme sets every `TextTheme` slot.
+- **Colour:** `playerInks` has 12 entries because rooms cap at 12. Light and dark alternate
+  in seat order so neighbouring bands never blur together, and `test/player_cosmetics_test.dart`
+  holds every ink to WCAG AA. Vermilion doubles as the alarm colour (hardcore notice,
+  dropped connection, the last 3 seconds).
+- **One loud moment:** the round reveal, where the owner's band slams up over the guesses.
+  It's the only motion nobody asked for, and it's instant under reduced motion. Don't add
+  entrance animations; a band resizing because someone joined is fine, since it shows
+  what changed.
+- **The layout has no slack.** Portrait only, text scale clamped to 1.3, and
+  `test/poster_layout_test.dart` fits a full room of 24-character names on an iPhone SE.
 
 ## Style
 

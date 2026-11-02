@@ -1,23 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
   <title>Photo Blame adaptive background</title>
-  <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#1A1A2E"/><stop offset="0.55" stop-color="#16213E"/><stop offset="1" stop-color="#0F3460"/>
-    </linearGradient>
-    <radialGradient id="warmGlow" cx="0.5" cy="0.46" r="0.60">
-      <stop offset="0" stop-color="#FFC46B" stop-opacity="0.26"/><stop offset="1" stop-color="#FFC46B" stop-opacity="0"/>
-    </radialGradient>
-  </defs>
-  <rect width="1024" height="1024" fill="url(#bg)"/>
-  <g transform="translate(512 512) rotate(-8)">
-    <path d="M 0 0 L 820 0 L 758 314 Z" fill="#E94560" opacity="0.45"/>
-    <path d="M 0 0 L 580 580 L 314 758 Z" fill="#E94560" opacity="0.45"/>
-    <path d="M 0 0 L 0 820 L -314 758 Z" fill="#E94560" opacity="0.45"/>
-    <path d="M 0 0 L -580 580 L -758 314 Z" fill="#E94560" opacity="0.45"/>
-    <path d="M 0 0 L -820 0 L -758 -314 Z" fill="#E94560" opacity="0.45"/>
-    <path d="M 0 0 L -580 -580 L -314 -758 Z" fill="#E94560" opacity="0.45"/>
-    <path d="M 0 0 L -0 -820 L 314 -758 Z" fill="#E94560" opacity="0.45"/>
-    <path d="M 0 0 L 580 -580 L 758 -314 Z" fill="#E94560" opacity="0.45"/>
-  </g>
-  <rect width="1024" height="1024" fill="url(#warmGlow)"/>
+  <rect width="1024" height="512" fill="#FFC200"/>
+  <rect y="512" width="1024" height="512" fill="#EE3A1C"/>
 </svg>

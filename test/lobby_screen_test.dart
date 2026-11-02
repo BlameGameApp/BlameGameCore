@@ -12,9 +12,9 @@ void main() {
     await pumpScreen(tester, LobbyScreen(controller: h.controller));
 
     expect(find.text('ABC12'), findsOneWidget);
-    expect(find.text('Emma (you)'), findsOneWidget);
-    expect(find.text('Jake'), findsOneWidget);
-    expect(find.text('PLAYERS (2)'), findsOneWidget);
+    expect(find.text('EMMA'), findsOneWidget);
+    expect(find.text('You, hosting'), findsOneWidget);
+    expect(find.text('JAKE'), findsOneWidget);
   });
 
   testWidgets('start is blocked until two people have added photos',
@@ -23,8 +23,8 @@ void main() {
     await pumpScreen(tester, LobbyScreen(controller: h.controller));
 
     // Two players, but nobody has uploaded.
-    expect(find.text('NEED PHOTOS FROM 2+ PLAYERS'), findsOneWidget);
-    expect(find.text('START GAME'), findsNothing);
+    expect(find.text('Need photos from 2+ players'), findsOneWidget);
+    expect(find.text('Start game'), findsNothing);
 
     await h.emit(
       tester,
@@ -34,7 +34,7 @@ void main() {
       ]),
     );
 
-    expect(find.text('START GAME'), findsOneWidget);
+    expect(find.text('Start game'), findsOneWidget);
   });
 
   testWidgets('one uploader is not enough', (tester) async {
@@ -49,7 +49,7 @@ void main() {
       ]),
     );
 
-    expect(find.text('NEED PHOTOS FROM 2+ PLAYERS'), findsOneWidget);
+    expect(find.text('Need photos from 2+ players'), findsOneWidget);
   });
 
   testWidgets('players show real readiness, not a decorative tick',
@@ -57,28 +57,28 @@ void main() {
     final h = await harness();
     await pumpScreen(tester, LobbyScreen(controller: h.controller));
 
-    // Jake has not uploaded: no green tick for him.
-    expect(find.byIcon(Icons.check_circle), findsNothing);
-    expect(find.byIcon(Icons.hourglass_empty), findsOneWidget);
+    // Nobody has uploaded, and every band says so.
+    expect(find.text('No photos yet'), findsNWidgets(2));
 
     await h.emit(
       tester,
       PhotosUpdated([
         player(id: 'me', name: 'Emma', isHost: true, photoCount: 1),
-        player(id: 'p2', name: 'Jake', photoCount: 1),
+        player(id: 'p2', name: 'Jake', photoCount: 3),
       ]),
     );
 
-    expect(find.byIcon(Icons.check_circle), findsOneWidget);
-    expect(find.byIcon(Icons.hourglass_empty), findsNothing);
+    expect(find.text('No photos yet'), findsNothing);
+    expect(find.text('1 photo'), findsOneWidget);
+    expect(find.text('3 photos'), findsOneWidget);
   });
 
   testWidgets('a non-host sees no start button', (tester) async {
     final h = await harness(isHost: false);
     await pumpScreen(tester, LobbyScreen(controller: h.controller));
 
-    expect(find.text('START GAME'), findsNothing);
-    expect(find.text('NEED PHOTOS FROM 2+ PLAYERS'), findsNothing);
+    expect(find.text('Start game'), findsNothing);
+    expect(find.text('Need photos from 2+ players'), findsNothing);
   });
 
   testWidgets('the leave control is a labelled button, not a bare icon',
@@ -108,7 +108,7 @@ void main() {
     await tester.pump();
 
     expect(find.text('Connection lost'), findsOneWidget);
-    expect(find.text('RETRY'), findsOneWidget);
+    expect(find.text('Retry'), findsOneWidget);
   });
 
   testWidgets('leaving posts to the server and pops the lobby', (tester) async {
@@ -184,7 +184,7 @@ void main() {
   testWidgets('another player leaving just updates the roster', (tester) async {
     final h = await harness();
     await pumpScreen(tester, LobbyScreen(controller: h.controller));
-    expect(find.text('PLAYERS (2)'), findsOneWidget);
+    expect(find.text('JAKE'), findsOneWidget);
 
     await h.emit(
       tester,
@@ -195,8 +195,8 @@ void main() {
       ),
     );
 
-    expect(find.text('PLAYERS (1)'), findsOneWidget);
-    expect(find.text('Jake'), findsNothing);
+    expect(find.text('EMMA'), findsOneWidget);
+    expect(find.text('JAKE'), findsNothing);
     expect(find.byType(LobbyScreen), findsOneWidget);
   });
 
@@ -206,9 +206,9 @@ void main() {
     await pumpScreen(tester, LobbyScreen(controller: h.controller));
 
     expect(find.text('Rounds'), findsOneWidget);
-    expect(find.text('Seconds per round'), findsOneWidget);
+    expect(find.text('Seconds'), findsOneWidget);
 
-    await tester.tap(find.widgetWithIcon(IconButton, Icons.add_circle_outline).first);
+    await tester.tap(find.byTooltip('More Rounds'));
     await tester.pump();
 
     final posted = h.http.requests.where((r) => r.url.path.endsWith('/settings'));
@@ -227,11 +227,13 @@ void main() {
     );
 
     // Read-only for a non-host: values shown, no steppers or switch.
-    expect(find.text('9'), findsOneWidget);
-    expect(find.text('25'), findsOneWidget);
-    expect(find.text('ON'), findsOneWidget);
-    expect(find.byIcon(Icons.add_circle_outline), findsNothing);
-    expect(find.byType(SwitchListTile), findsNothing);
+    expect(
+      find.text('9 rounds, 25 seconds each'),
+      findsOneWidget,
+    );
+    expect(find.textContaining('Hardcore:'), findsOneWidget);
+    expect(find.byTooltip('More Rounds'), findsNothing);
+    expect(find.byType(Switch), findsNothing);
   });
 
   testWidgets('hardcore is editable until the first photo lands, then locks',
@@ -252,7 +254,7 @@ void main() {
 
     expect(tester.widget<Switch>(find.byType(Switch)).onChanged, isNull);
     expect(
-      find.text('Locked — photos have already been added to this room.'),
+      find.text('Locked: photos have been added'),
       findsOneWidget,
     );
   });

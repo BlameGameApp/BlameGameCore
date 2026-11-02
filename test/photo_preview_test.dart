@@ -56,7 +56,7 @@ Future<void> _openPreview(WidgetTester tester, FakeSampler sampler) async {
     tester,
     LobbyScreen(controller: h.controller, sampler: sampler),
   );
-  await tester.tap(find.text('ADD PHOTOS'));
+  await tester.tap(find.text('Add photos'));
   await settle(tester);
 }
 
@@ -79,10 +79,10 @@ void main() {
     ]);
     await _openPreview(tester, sampler);
 
-    expect(find.text('THESE PHOTOS?'), findsOneWidget);
+    expect(find.text('These photos?'), findsOneWidget);
     expect(find.byType(Image), findsNWidgets(3));
-    expect(find.text('USE THESE'), findsOneWidget);
-    expect(find.text('RESHUFFLE'), findsOneWidget);
+    expect(find.text('Use these'), findsOneWidget);
+    expect(find.text('Reshuffle'), findsOneWidget);
   });
 
   testWidgets('reshuffle asks for a fresh batch, excluding what was shown',
@@ -93,14 +93,14 @@ void main() {
     ]);
     await _openPreview(tester, sampler);
 
-    await tester.tap(find.text('RESHUFFLE'));
+    await tester.tap(find.text('Reshuffle'));
     await settle(tester);
 
     expect(sampler.calls, 2);
     expect(sampler.excludes.first, isEmpty);
     expect(sampler.excludes.last, {'a', 'b'});
     // Still previewing, still nothing uploaded.
-    expect(find.text('THESE PHOTOS?'), findsOneWidget);
+    expect(find.text('These photos?'), findsOneWidget);
   });
 
   testWidgets('a second reshuffle excludes both earlier batches',
@@ -112,9 +112,9 @@ void main() {
     ]);
     await _openPreview(tester, sampler);
 
-    await tester.tap(find.text('RESHUFFLE'));
+    await tester.tap(find.text('Reshuffle'));
     await settle(tester);
-    await tester.tap(find.text('RESHUFFLE'));
+    await tester.tap(find.text('Reshuffle'));
     await settle(tester);
 
     expect(sampler.excludes.last, {'a', 'b'});
@@ -127,7 +127,7 @@ void main() {
     ]);
     await _openPreview(tester, sampler);
 
-    await tester.tap(find.text('RESHUFFLE'));
+    await tester.tap(find.text('Reshuffle'));
     await settle(tester);
 
     expect(find.text('No other photos to shuffle in'), findsOneWidget);
@@ -145,9 +145,9 @@ void main() {
     );
     expect(h.http.countFor('/photos'), 0);
 
-    await tester.tap(find.text('ADD PHOTOS'));
+    await tester.tap(find.text('Add photos'));
     await settle(tester);
-    await tester.tap(find.text('USE THESE'));
+    await tester.tap(find.text('Use these'));
     await settle(tester);
 
     expect(h.http.countFor('/photos'), 2);
@@ -164,11 +164,11 @@ void main() {
       LobbyScreen(controller: h.controller, sampler: sampler),
     );
 
-    await tester.tap(find.text('ADD PHOTOS'));
+    await tester.tap(find.text('Add photos'));
     await settle(tester);
 
-    expect(find.text('THESE PHOTOS?'), findsNothing);
-    expect(find.text('RESHUFFLE'), findsNothing);
+    expect(find.text('These photos?'), findsNothing);
+    expect(find.text('Reshuffle'), findsNothing);
     // Straight to the server, no confirmation step.
     expect(h.http.countFor('/photos'), 2);
   });
@@ -182,7 +182,7 @@ void main() {
 
     final hard = await harness(snapshot: _hardcoreSnapshot);
     await pumpScreen(tester, LobbyScreen(controller: hard.controller));
-    expect(find.textContaining('HARDCORE'), findsOneWidget);
+    expect(find.textContaining('Hardcore:'), findsOneWidget);
     expect(
       find.textContaining('without showing them to you first'),
       findsOneWidget,
@@ -203,7 +203,7 @@ void main() {
       LobbyScreen(controller: h.controller, sampler: sampler),
     );
 
-    await tester.tap(find.text('ADD PHOTOS'));
+    await tester.tap(find.text('Add photos'));
     await settle(tester);
 
     // Nothing was even read off the camera roll, let alone uploaded.
@@ -221,9 +221,9 @@ void main() {
       LobbyScreen(controller: h.controller, sampler: sampler),
     );
 
-    await tester.tap(find.text('ADD PHOTOS'));
+    await tester.tap(find.text('Add photos'));
     await settle(tester);
-    Navigator.of(tester.element(find.text('THESE PHOTOS?'))).pop();
+    Navigator.of(tester.element(find.text('These photos?'))).pop();
     await settle(tester);
 
     expect(h.http.countFor('/photos'), 0);

@@ -1,41 +1,65 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:photo_blame/models/game_models.dart';
 import 'package:photo_blame/ui/player_cosmetics.dart';
 
+double _contrast(Color a, Color b) {
+  final (hi, lo) = (
+    max(a.computeLuminance(), b.computeLuminance()),
+    min(a.computeLuminance(), b.computeLuminance()),
+  );
+  return (hi + 0.05) / (lo + 0.05);
+}
+
 void main() {
-  group('PlayerCosmetics', () {
-    test('the same id always maps to the same colour and avatar', () {
-      const a = GamePlayer(id: 'abc', name: 'X');
-      const b = GamePlayer(id: 'abc', name: 'Y', score: 500, isHost: true);
-      expect(a.color, b.color);
-      expect(a.avatar, b.avatar);
+  final room = [
+    for (var i = 0; i < 12; i++) GamePlayer(id: 'id-$i', name: 'Player $i'),
+  ];
+
+  group('PlayerInks', () {
+    // Rooms cap at 12, and people are told apart here by their colour.
+    test('a full room has no two players on the same colour', () {
+      final fills = {for (final p in room) room.inkOf(p.id).fill};
+      expect(fills, hasLength(12));
     });
 
-    // Pins the actual mapping. Every client in a room derives cosmetics
-    // independently, so the algorithm changing would silently give the same
-    // person different colours on different devices — these values are the
-    // contract, not an implementation detail.
-    test('ids map to a pinned slot, so all clients agree', () {
-      const cases = <String, (Color, IconData)>{
-        'abc': (Colors.amber, Icons.person),
-        'player-1': (Colors.purple, Icons.face_3),
-        'player-2': (Colors.tealAccent, Icons.face_4),
-        'zzzz': (Colors.orange, Icons.face_6),
-      };
-      cases.forEach((id, expected) {
-        final player = GamePlayer(id: id, name: 'n');
-        expect(player.color, expected.$1, reason: 'colour for "$id"');
-        expect(player.avatar, expected.$2, reason: 'avatar for "$id"');
-      });
+    // Every client seats the room from the same server-ordered list, so the
+    // order is the contract, not an implementation detail.
+    test('seats follow join order, so all clients agree', () {
+      expect(room.inkOf('id-0').fill, playerInks[0].fill);
+      expect(room.inkOf('id-1').fill, playerInks[1].fill);
+      expect(room.inkOf('id-11').fill, playerInks[11].fill);
     });
 
-    test('different ids spread across more than one slot', () {
-      final colors = {
-        for (final id in ['a', 'b', 'c', 'd', 'e', 'f', 'g'])
-          GamePlayer(id: id, name: 'n').color,
-      };
-      expect(colors.length, greaterThan(1));
+    test('someone who left still gets a stable colour', () {
+      expect(room.inkOf('gone').fill, room.inkOf('gone').fill);
+      expect(room.inkOf(null).fill, isNotNull);
+    });
+
+    // Names are huge, but the small line above them isn't, so hold every ink
+    // to the body-text bar rather than the one for large type.
+    test('text on every ink meets WCAG AA', () {
+      for (final ink in playerInks) {
+        expect(
+          _contrast(ink.fill, ink.on),
+          greaterThanOrEqualTo(4.5),
+          reason: '${ink.on} on ${ink.fill}',
+        );
+      }
+    });
+
+    // Bands stack in join order, so neighbours have to separate on brightness
+    // alone for anyone who can't rely on hue.
+    test('neighbouring seats differ in brightness', () {
+      for (var i = 0; i < 7; i++) {
+        expect(
+          _contrast(playerInks[i].fill, playerInks[i + 1].fill),
+          greaterThan(1.5),
+          reason: 'seat $i against seat ${i + 1}',
+        );
+      }
     });
   });
 }

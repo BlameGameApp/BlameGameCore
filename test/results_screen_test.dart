@@ -26,24 +26,24 @@ void main() {
     final h = await finishedGame(tester);
     await pumpScreen(tester, ResultsScreen(controller: h.controller));
 
-    expect(find.text('Jake'), findsWidgets);
-    expect(find.text('Emma'), findsWidgets);
-    expect(find.text('2400'), findsOneWidget);
-    expect(find.text('1500'), findsOneWidget);
+    expect(find.text('JAKE'), findsWidgets);
+    expect(find.text('EMMA'), findsWidgets);
+    expect(find.text('2400 points'), findsOneWidget);
+    expect(find.text('1500 points'), findsOneWidget);
   });
 
   testWidgets('the host can start a new round', (tester) async {
     final h = await finishedGame(tester, isHost: true);
     await pumpScreen(tester, ResultsScreen(controller: h.controller));
 
-    expect(find.text('START NEW ROUND'), findsOneWidget);
+    expect(find.text('Play again'), findsOneWidget);
   });
 
   testWidgets('a non-host cannot start a new round', (tester) async {
     final h = await finishedGame(tester, isHost: false);
     await pumpScreen(tester, ResultsScreen(controller: h.controller));
 
-    expect(find.text('START NEW ROUND'), findsNothing);
+    expect(find.text('Play again'), findsNothing);
   });
 
   testWidgets('the leaderboard is live, not a frozen snapshot', (tester) async {
@@ -51,7 +51,7 @@ void main() {
     // event left the screen showing stale results.
     final h = await finishedGame(tester);
     await pumpScreen(tester, ResultsScreen(controller: h.controller));
-    expect(find.text('2400'), findsOneWidget);
+    expect(find.text('2400 points'), findsOneWidget);
 
     await h.emit(
       tester,
@@ -61,8 +61,8 @@ void main() {
       ]),
     );
 
-    expect(find.text('9100'), findsOneWidget);
-    expect(find.text('2400'), findsNothing);
+    expect(find.text('9100 points'), findsOneWidget);
+    expect(find.text('2400 points'), findsNothing);
   });
 
   testWidgets('an empty leaderboard does not crash', (tester) async {

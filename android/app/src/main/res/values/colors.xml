@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- AppColors.dark.bgTop. Kept in step with lib/theme/app_theme.dart by
+    <!-- AppColors.flat.marigold. Kept in step with lib/theme/app_theme.dart by
          hand: the launch window is drawn by Android before any Dart runs, so
          it cannot read the Flutter palette. -->
-    <color name="launch_background">#1A1A2E</color>
+    <color name="launch_background">#FFC200</color>
 </resources>

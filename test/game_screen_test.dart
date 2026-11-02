@@ -32,8 +32,8 @@ void main() {
       (tester) async {
     final h = await inRound(tester);
 
-    expect(find.text('Emma'), findsOneWidget);
-    expect(find.text('Jake'), findsOneWidget);
+    expect(find.text('EMMA'), findsOneWidget);
+    expect(find.text('JAKE'), findsOneWidget);
 
     await unmount(tester);
     h.controller.dispose();
@@ -43,7 +43,7 @@ void main() {
       (tester) async {
     final h = await inRound(tester);
 
-    await tester.tap(find.text('Jake'));
+    await tester.tap(find.text('JAKE'));
     await tester.pump();
     await tester.pump();
 
@@ -63,7 +63,7 @@ void main() {
       (tester) async {
     final h = await inRound(tester, guess: 500);
 
-    await tester.tap(find.text('Jake'));
+    await tester.tap(find.text('JAKE'));
     await tester.pump();
     await tester.pump();
 
@@ -84,9 +84,10 @@ void main() {
     await h.emit(tester, const RoundRevealed(roundIndex: 0, ownerId: 'p2'));
 
     expect(h.controller.phase, GamePhase.revealed);
-    // Jake owns the photo, so the banner must say so — this is the payoff of
-    // the whole round and used to render for zero frames.
-    expect(find.textContaining('Jake'), findsWidgets);
+    // Jake owns the photo, so the band must say so — this is the payoff of the
+    // whole round and used to render for zero frames.
+    expect(find.text('It was'), findsOneWidget);
+    expect(find.text('JAKE'), findsWidgets);
 
     await unmount(tester);
     h.controller.dispose();
@@ -95,14 +96,14 @@ void main() {
   testWidgets('the live score badge reflects points as they are won',
       (tester) async {
     final h = await inRound(tester);
-    expect(find.text('0'), findsWidgets);
+    expect(find.text('0 points'), findsOneWidget);
 
     await h.emit(
       tester,
       const GuessResult(guesserId: 'me', points: 700, correct: true),
     );
 
-    expect(find.text('700'), findsOneWidget);
+    expect(find.text('700 points'), findsOneWidget);
 
     await unmount(tester);
     h.controller.dispose();
@@ -140,7 +141,7 @@ void main() {
     h.controller.dispose();
   });
 
-  testWidgets('guess chips are buttons to a screen reader, not plain text',
+  testWidgets('guess bands are buttons to a screen reader, not plain text',
       (tester) async {
     final handle = tester.ensureSemantics();
     final h = await inRound(tester);
@@ -154,7 +155,6 @@ void main() {
         isButton: true,
         isEnabled: true,
         hasEnabledState: true,
-        hasSelectedState: true,
         hasTapAction: true,
         hasFocusAction: true,
         isFocusable: true,
