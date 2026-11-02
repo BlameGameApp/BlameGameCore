@@ -22,7 +22,7 @@ import 'package:integration_test/integration_test.dart';
 import 'package:photo_blame/config.dart';
 import 'package:photo_blame/main.dart' as app;
 import 'package:photo_blame/screens/lobby_screen.dart';
-import 'package:photo_blame/ui/band.dart';
+import 'package:photo_blame/ui/player_avatar.dart';
 
 const roomCode = String.fromEnvironment('ROOM_CODE');
 const playerName = String.fromEnvironment('PLAYER_NAME', defaultValue: 'Player');
@@ -99,7 +99,7 @@ void main() {
     await tester.pump();
     await tester.enterText(find.byType(TextField).last, roomCode);
     await tester.pump();
-    await tester.tap(find.text('Join'));
+    await tester.tap(find.text('Join game'));
     await pumpUntil(tester, () => _visible(find.byType(LobbyScreen)),
         reason: 'the lobby for $roomCode');
     debugPrint('$playerName joined $roomCode');
@@ -110,24 +110,29 @@ void main() {
     // one's own WebSocket, not a poll.
     await pumpUntil(
       tester,
-      () => find.byType(PlayerBand).evaluate().length >= 2,
+      () => _visible(find.text('Players (2)')),
       timeout: const Duration(seconds: 120),
       reason: 'the other device to appear in the roster',
     );
 
     // --- the host, whoever got in first, runs the game ---------------------
-    final isHost = _visible(find.text('Start game')) ||
-        _visible(find.textContaining('Need '));
+    final isHost = _visible(find.text('Change'));
     debugPrint('$playerName isHost=$isHost');
 
     if (isHost) {
       await pumpUntil(tester, () => _visible(find.text('Start game')),
           timeout: const Duration(seconds: 120),
           reason: 'START to unlock');
+      await tester.tap(find.text('Change'));
+      await pumpUntil(tester, () => _visible(find.byTooltip('Fewer Rounds')),
+          reason: 'the settings sheet');
       for (var i = 0; i < 4; i++) {
         await tester.tap(find.byTooltip('Fewer Rounds'));
         await tester.pump(const Duration(milliseconds: 300));
       }
+      Navigator.of(tester.element(find.text('Game settings'))).pop();
+      await pumpUntil(tester, () => !_visible(find.text('Game settings')),
+          reason: 'the settings sheet to close');
       await tester.tap(find.text('Start game'));
     }
 
@@ -140,9 +145,10 @@ void main() {
       reason: 'the game screen',
     );
 
-    final anyBand = find.byType(PlayerBand);
-    await pumpUntil(tester, () => _visible(anyBand), reason: 'the guess bands');
-    await tester.tap(anyBand.first);
+    final anyButton = find.byType(PlayerAvatar);
+    await pumpUntil(tester, () => _visible(anyButton),
+        reason: 'the guess buttons');
+    await tester.tap(anyButton.first);
     await pumpUntil(
       tester,
       () => _visible(find.textContaining('Correct!')) ||
@@ -153,7 +159,7 @@ void main() {
     // --- both land on the same leaderboard ---------------------------------
     await pumpUntil(tester, () => _visible(find.text('Leave game')),
         timeout: const Duration(seconds: 120), reason: 'the leaderboard');
-    expect(find.text(playerName.toUpperCase()), findsWidgets,
+    expect(find.text(playerName), findsWidgets,
         reason: 'this device should be on the board');
   });
 }

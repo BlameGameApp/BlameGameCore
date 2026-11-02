@@ -1,15 +1,15 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../config.dart';
 import '../models/game_models.dart';
 import '../state/game_controller.dart';
 import '../theme/app_theme.dart';
-import '../ui/band.dart';
 import '../ui/connection_banner.dart';
 import '../ui/controller_screen.dart';
 import '../ui/error_text.dart';
-import '../ui/fit_text.dart';
+import '../ui/player_avatar.dart';
 import '../ui/player_cosmetics.dart';
 import 'results_screen.dart';
 
@@ -101,6 +101,7 @@ class _GameScreenState extends State<GameScreen>
     if (c.hasGuessedThisRound || _timeExpired || c.phase != GamePhase.inRound) {
       return;
     }
+    HapticFeedback.lightImpact();
     setState(() => _myGuessedPlayerId = player.id);
     try {
       await c.guess(player.id);
@@ -113,42 +114,89 @@ class _GameScreenState extends State<GameScreen>
     }
   }
 
+  /// There's no way back into a game once it has started, so leaving is asked
+  /// about, and an accidental swipe-back can't do it.
+  Future<void> _confirmLeave() async {
+    final leave = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Leave this game?'),
+        content: const Text("You won't be able to rejoin it."),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Stay'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Leave'),
+          ),
+        ],
+      ),
+    );
+    if (leave != true || !mounted) return;
+    try {
+      await c.leaveRoom();
+    } catch (_) {
+      // Leaving anyway: the player asked to go, and a failed call shouldn't
+      // keep them in a game they've left.
+    }
+    if (mounted) navigateOnce(() => Navigator.of(context).pop());
+  }
+
   @override
   Widget build(BuildContext context) {
-    final colors = context.colors;
-    return PosterScaffold(
-      top: colors.ink,
-      body: Column(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _confirmLeave();
+      },
+      child: Scaffold(
+        body: SafeArea(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              ConnectionBanner(controller: c),
+              _topBar(),
+              _timer(),
+              const SizedBox(height: 8),
+              Expanded(child: _photoArea()),
+              _prompt(),
+              _guessGrid(),
+              const SizedBox(height: 12),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _topBar() {
+    final text = Theme.of(context).textTheme;
+    return Padding(
+      padding: const EdgeInsets.only(left: 4, right: 16),
+      child: Row(
         children: [
-          _topBar(),
-          ConnectionBanner(controller: c),
+          IconButton(
+            onPressed: _confirmLeave,
+            tooltip: 'Leave game',
+            icon: const Icon(Icons.close),
+          ),
           Expanded(
-            child: LayoutBuilder(
-              builder: (context, box) {
-                final panel = _panelHeight();
-                return Stack(
-                  children: [
-                    Positioned.fill(bottom: panel, child: _photoArea()),
-                    if (c.phase == GamePhase.inRound)
-                      Positioned(
-                        right: 0,
-                        bottom: panel,
-                        child: _countdown(),
-                      ),
-                    Positioned(
-                      left: 0,
-                      right: 0,
-                      bottom: 0,
-                      height: panel,
-                      child: c.hasGuessedThisRound
-                          ? _lockedIn()
-                          : _guessGrid(panel),
-                    ),
-                    if (c.phase == GamePhase.revealed)
-                      _reveal(box.maxHeight * 0.52),
-                  ],
-                );
-              },
+            child: Text(
+              'Round ${c.roundIndex + 1} of ${c.totalRounds}',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: text.titleMedium,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Flexible(
+            child: Text(
+              '${c.me?.score ?? 0} points',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: text.titleMedium,
             ),
           ),
         ],
@@ -156,74 +204,53 @@ class _GameScreenState extends State<GameScreen>
     );
   }
 
-  Widget _topBar() {
+  Widget _timer() {
     final colors = context.colors;
+    final inRound = c.phase == GamePhase.inRound;
     final progress = c.roundSeconds == 0 ? 0.0 : _timeLeft / c.roundSeconds;
-    final text = uiText(15, weight: 700, color: colors.paper);
-    return Column(
-      children: [
-        Band(
-          color: colors.ink,
-          padding: EdgeInsets.fromLTRB(
-            bandGutter,
-            MediaQuery.paddingOf(context).top + 4,
-            bandGutter,
-            12,
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Flexible(
-                child: Text(
-                  'Round ${c.roundIndex + 1} of ${c.totalRounds}',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: text,
+    final urgent = inRound && _timeLeft <= 3;
+    final color = urgent ? colors.alert : colors.ink;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Row(
+        children: [
+          Expanded(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: ColoredBox(
+                color: colors.surface,
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  // Animated over the tick so it drains instead of stepping
+                  // once a second.
+                  child: AnimatedFractionallySizedBox(
+                    duration: const Duration(seconds: 1),
+                    widthFactor: inRound ? progress : 0,
+                    child: Container(height: 8, color: color),
+                  ),
                 ),
               ),
-              const SizedBox(width: 12),
-              Text('${c.me?.score ?? 0} points', style: text),
-            ],
+            ),
           ),
-        ),
-        // The whole round is this one bar running out. Animated over the tick
-        // so it drains instead of stepping once a second.
-        ColoredBox(
-          color: colors.ink,
-          child: Align(
-            alignment: Alignment.centerLeft,
-            child: AnimatedFractionallySizedBox(
-              duration: const Duration(seconds: 1),
-              widthFactor: c.phase == GamePhase.inRound ? progress : 0,
-              child: Container(
-                height: 8,
-                color: _timeLeft <= 3 ? colors.vermilion : colors.marigold,
+          SizedBox(
+            width: 36,
+            child: Semantics(
+              label: '$_timeLeft seconds left',
+              child: ExcludeSemantics(
+                child: Text(
+                  inRound ? '$_timeLeft' : '',
+                  textAlign: TextAlign.end,
+                  style: TextStyle(
+                    color: color,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
+                ),
               ),
             ),
           ),
-        ),
-      ],
-    );
-  }
-
-  Widget _countdown() {
-    final colors = context.colors;
-    final urgent = _timeLeft <= 3;
-    return Semantics(
-      label: '$_timeLeft seconds left',
-      child: ExcludeSemantics(
-        child: Container(
-          color: urgent ? colors.vermilion : colors.ink,
-          width: 96,
-          height: 72,
-          padding: const EdgeInsets.all(14),
-          child: Center(
-            child: FitText(
-              '$_timeLeft',
-              color: urgent ? colors.ink : colors.paper,
-            ),
-          ),
-        ),
+        ],
       ),
     );
   }
@@ -238,14 +265,15 @@ class _GameScreenState extends State<GameScreen>
         (MediaQuery.sizeOf(context).width *
                 MediaQuery.devicePixelRatioOf(context))
             .round();
-    final waiting = Center(child: CircularProgressIndicator(color: colors.paper));
+    final waiting = Center(child: CircularProgressIndicator(color: colors.ink));
     return ColoredBox(
       color: colors.ink,
       child: photo == null
-          ? waiting
+          ? Center(child: CircularProgressIndicator(color: colors.paper))
           : Image.network(
               '$apiBase${photo.url}',
-              fit: BoxFit.cover,
+              // The whole picture, not a crop: the clue may be in a corner.
+              fit: BoxFit.contain,
               width: double.infinity,
               height: double.infinity,
               cacheWidth: decodeWidth,
@@ -253,159 +281,195 @@ class _GameScreenState extends State<GameScreen>
               errorBuilder: (context, error, stack) => Center(
                 child: Icon(
                   Icons.broken_image,
-                  color: colors.paperMuted,
+                  color: colors.paper,
                   size: 64,
                 ),
               ),
-              loadingBuilder: (context, child, progress) =>
-                  progress == null ? child : waiting,
+              loadingBuilder: (context, child, progress) => progress == null
+                  ? child
+                  : ColoredBox(color: colors.paper, child: waiting),
             ),
     );
   }
 
-  /// Taller as the room fills, so names stay big enough to hit under a
-  /// countdown. The bottom row runs under the home indicator.
-  double _panelHeight() {
-    final bottom = MediaQuery.paddingOf(context).bottom;
-    final rows = _rowsOf(c.players.length);
-    return (rows * 64.0 < 200 ? 200.0 : rows * 64.0) + bottom;
+  /// One line that always says where the round stands. It has a fixed height,
+  /// so nothing under it moves and the names stay where the thumb already is.
+  Widget _prompt() {
+    final colors = context.colors;
+    final text = Theme.of(context).textTheme;
+    final points = c.lastPointsEarned;
+    final guessed = c.players.where((p) => p.id == _myGuessedPlayerId);
+    final String headline;
+    String? detail;
+    var color = colors.ink;
+    if (c.phase == GamePhase.revealed) {
+      headline = "It was ${c.revealedOwnerName}'s photo";
+      if ((points ?? 0) > 0) {
+        detail = 'Correct! +$points points';
+        color = colors.correct;
+      } else if (guessed.isNotEmpty) {
+        detail = 'You guessed ${guessed.first.name}';
+      } else if (c.hasGuessedThisRound) {
+        detail = 'Your guess was wrong';
+      } else {
+        detail = 'No guess this round';
+      }
+    } else if (c.hasGuessedThisRound) {
+      if ((points ?? 0) > 0) {
+        headline = 'Correct! +$points points';
+        color = colors.correct;
+      } else {
+        headline = 'Guess submitted';
+        detail = 'Waiting for the answer…';
+      }
+    } else if (_timeExpired) {
+      headline = "Time's up";
+    } else {
+      headline = 'Whose photo is this?';
+    }
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
+      child: SizedBox(
+        height: 54,
+        child: Semantics(
+          liveRegion: true,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                headline,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textScaler: TextScaler.noScaling,
+                style: text.titleMedium!.copyWith(
+                  color: color,
+                  fontSize: 19,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              if (detail != null)
+                Text(
+                  detail,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textScaler: TextScaler.noScaling,
+                  style: text.bodyMedium,
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
-  /// One column while names can stay huge, more once a stack would be too
-  /// thin to tap. The room caps at 12, which is 3 x 4.
-  int _columnsFor(int players) {
-    if (players <= 4) return 1;
-    return players <= 8 ? 2 : 3;
-  }
-
-  int _rowsOf(int players) {
-    if (players == 0) return 1;
-    return (players / _columnsFor(players)).ceil();
-  }
-
-  Widget _guessGrid(double panel) {
+  Widget _guessGrid() {
     // You guess who took the photo — any player, including yourself, is a candidate.
     final candidates = c.players;
-    final columns = _columnsFor(candidates.length);
-    final bottom = MediaQuery.paddingOf(context).bottom;
+    // Two columns keep a 24-character name readable. Three is only for a room
+    // so full that two would squeeze the photo to nothing.
+    final columns = candidates.length > 8 ? 3 : 2;
     final rows = <List<GamePlayer>>[
       for (var i = 0; i < candidates.length; i += columns)
         candidates.skip(i).take(columns).toList(),
     ];
-    final rowHeight = (panel - bottom) / rows.length;
-    return Column(
-      children: [
-        for (final (i, row) in rows.indexed)
-          SizedBox(
-            height: i == rows.length - 1 ? rowHeight + bottom : rowHeight,
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                for (final player in row)
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Column(
+        children: [
+          for (final (i, row) in rows.indexed)
+            Padding(
+              padding: EdgeInsets.only(top: i == 0 ? 0 : 8),
+              child: Row(
+                children: [
+                  for (final (j, player) in row.indexed) ...[
+                    if (j > 0) const SizedBox(width: 8),
+                    Expanded(child: _guessButton(player, compact: columns == 3)),
+                  ],
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  /// The same button from the first second to the reveal: only its state
+  /// changes, so the player's eye never has to find anything twice. Each state
+  /// also carries an icon, because red and green alone don't reach everyone.
+  Widget _guessButton(GamePlayer player, {required bool compact}) {
+    final colors = context.colors;
+    final revealed = c.phase == GamePhase.revealed;
+    final disabled = c.hasGuessedThisRound || _timeExpired || revealed;
+    final picked = player.id == _myGuessedPlayerId;
+    final isOwner = revealed && player.id == c.revealedOwnerId;
+
+    var fill = colors.surface;
+    var foreground = disabled ? colors.muted : colors.ink;
+    IconData? icon;
+    if (isOwner) {
+      fill = colors.correct;
+      foreground = colors.paper;
+      icon = Icons.check;
+    } else if (revealed && picked) {
+      fill = colors.alert;
+      foreground = colors.paper;
+      icon = Icons.close;
+    } else if (picked) {
+      fill = colors.ink;
+      foreground = colors.paper;
+    }
+
+    return Semantics(
+      button: true,
+      enabled: !disabled,
+      label: 'Guess ${player.name}',
+      onTap: disabled ? null : () => _guess(player),
+      child: Material(
+        color: fill,
+        borderRadius: BorderRadius.circular(12),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: disabled ? null : () => _guess(player),
+          excludeFromSemantics: true,
+          child: ExcludeSemantics(
+            child: Container(
+              constraints: BoxConstraints(minHeight: compact ? 52 : 56),
+              padding: EdgeInsets.symmetric(
+                horizontal: compact ? 8 : 10,
+                vertical: 6,
+              ),
+              child: Row(
+                children: [
+                  if (!compact) ...[
+                    PlayerAvatar(
+                      name: player.name,
+                      ink: c.players.inkOf(player.id),
+                      radius: 16,
+                    ),
+                    const SizedBox(width: 8),
+                  ],
                   Expanded(
-                    child: _guessBand(
-                      player,
-                      bottomInset: i == rows.length - 1 ? bottom : 0,
+                    child: Text(
+                      player.name,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: compact ? TextAlign.center : TextAlign.start,
+                      textScaler: MediaQuery.textScalerOf(
+                        context,
+                      ).clamp(maxScaleFactor: 1.2),
+                      style: TextStyle(
+                        color: foreground,
+                        fontSize: compact ? 14 : 16,
+                        height: 1.2,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
-              ],
-            ),
-          ),
-      ],
-    );
-  }
-
-  Widget _guessBand(GamePlayer player, {required double bottomInset}) {
-    final colors = context.colors;
-    final disabled = _timeExpired || c.phase != GamePhase.inRound;
-    return PlayerBand(
-      name: player.name,
-      ink: disabled
-          ? PlayerInk(colors.ink, colors.paperMuted)
-          : c.players.inkOf(player.id),
-      actionLabel: 'Guess ${player.name}',
-      bottomInset: bottomInset,
-      onTap: disabled ? null : () => _guess(player),
-    );
-  }
-
-  /// After a guess the panel becomes the one band that was picked, which is
-  /// also where a correct answer is announced. A wrong one only says it landed:
-  /// the owner isn't known until the reveal.
-  Widget _lockedIn() {
-    final points = c.lastPointsEarned;
-    final guessed = c.players.where((p) => p.id == _myGuessedPlayerId);
-    return PlayerBand(
-      name: guessed.isEmpty ? 'Locked in' : guessed.first.name,
-      ink: c.players.inkOf(_myGuessedPlayerId),
-      leading: 'You blamed',
-      trailing: points == null
-          ? null
-          : points > 0
-          ? 'Correct! +$points points'
-          : 'Guess submitted',
-      bottomInset: MediaQuery.paddingOf(context).bottom,
-    );
-  }
-
-  /// The round's one loud moment: the owner's band slams up over the guesses.
-  ///
-  /// Keyed by round so each reveal runs again, and instant for anyone who asked
-  /// the system for reduced motion.
-  Widget _reveal(double height) {
-    final ink = c.players.inkOf(c.revealedOwnerId);
-    final text = uiText(18, weight: 800, color: ink.on);
-    final points = c.lastPointsEarned ?? 0;
-    final guessed = c.players.where((p) => p.id == _myGuessedPlayerId);
-    final String outcome;
-    if (points > 0) {
-      outcome = 'Correct! +$points points';
-    } else if (guessed.isNotEmpty) {
-      outcome = 'You blamed ${guessed.first.name}';
-    } else if (c.hasGuessedThisRound) {
-      outcome = 'Wrong guess';
-    } else {
-      outcome = 'No guess this round';
-    }
-    return Positioned(
-      left: 0,
-      right: 0,
-      bottom: 0,
-      height: height,
-      child: TweenAnimationBuilder<double>(
-        key: ValueKey(c.roundIndex),
-        tween: Tween(begin: 1, end: 0),
-        duration: MediaQuery.disableAnimationsOf(context)
-            ? Duration.zero
-            : const Duration(milliseconds: 260),
-        curve: Curves.easeOutQuart,
-        builder: (context, offset, child) => Transform.translate(
-          offset: Offset(0, height * offset),
-          child: child,
-        ),
-        child: Band(
-          color: ink.fill,
-          padding: EdgeInsets.fromLTRB(
-            bandGutter,
-            16,
-            bandGutter,
-            MediaQuery.paddingOf(context).bottom + 16,
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text('It was', style: text),
-              const SizedBox(height: 12),
-              Expanded(
-                child: FitText(
-                  c.revealedOwnerName.toUpperCase(),
-                  color: ink.on,
-                  semanticsLabel: c.revealedOwnerName,
-                ),
+                  if (icon != null) Icon(icon, color: foreground, size: 20),
+                ],
               ),
-              const SizedBox(height: 16),
-              Text(outcome, style: text),
-            ],
+            ),
           ),
         ),
       ),

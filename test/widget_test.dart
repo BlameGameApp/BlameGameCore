@@ -11,12 +11,34 @@ void main() {
   testWidgets('Home screen renders title and actions', (tester) async {
     await tester.pumpWidget(const PhotoBlameApp());
 
-    expect(find.text('PHOTO'), findsOneWidget);
-    expect(find.text('BLAME'), findsOneWidget);
-    expect(find.text('Start a game'), findsOneWidget);
-    expect(find.text('Join'), findsOneWidget);
+    expect(find.text('Photo Blame'), findsOneWidget);
+    expect(find.text('Join game'), findsOneWidget);
+    expect(find.text('Start a new game'), findsOneWidget);
 
     // Name and game-code fields are present.
     expect(find.byType(TextField), findsNWidgets(2));
+  });
+
+  testWidgets('a name is required, instead of becoming a silent "Player"',
+      (tester) async {
+    await tester.pumpWidget(const PhotoBlameApp());
+
+    await tester.tap(find.text('Start a new game'));
+    await tester.pump();
+
+    expect(find.text('Enter your name'), findsOneWidget);
+  });
+
+  testWidgets('joining needs a whole game code', (tester) async {
+    await tester.pumpWidget(const PhotoBlameApp());
+
+    await tester.enterText(find.byType(TextField).first, 'Emma');
+    await tester.enterText(find.byType(TextField).last, 'abc');
+    await tester.tap(find.text('Join game'));
+    await tester.pump();
+
+    expect(find.text('Enter the 5-character code'), findsOneWidget);
+    // Typed in lower case, shown as the code it will be matched against.
+    expect(find.text('ABC'), findsOneWidget);
   });
 }

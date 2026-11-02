@@ -24,7 +24,6 @@ import 'package:photo_manager/photo_manager.dart';
 import 'package:photo_blame/config.dart';
 import 'package:photo_blame/main.dart' as app;
 import 'package:photo_blame/screens/lobby_screen.dart';
-import 'package:photo_blame/ui/fit_text.dart';
 
 /// Pumps in slices until [condition] holds, instead of `pumpAndSettle`.
 ///
@@ -48,18 +47,18 @@ bool _visible(Finder f) => f.evaluate().isNotEmpty;
 
 /// The five-character room code shown on the lobby's game-code card.
 ///
-/// The code is the lobby's first poster line. Scoped to the lobby because the
-/// home screen is still in the tree during the transition, and its "PHOTO"
-/// looks exactly like a code. Names come after it, and "GUEST" would too.
+/// The only five-character run in the lobby that isn't a word. Scoped to the
+/// lobby because the home screen is still in the tree during the transition.
 String readRoomCode(WidgetTester tester) {
   final codes = tester
-      .widgetList<FitText>(
+      .widgetList<Text>(
         find.descendant(
           of: find.byType(LobbyScreen),
-          matching: find.byType(FitText),
+          matching: find.byType(Text),
         ),
       )
-      .map((t) => t.text)
+      .map((t) => t.data)
+      .whereType<String>()
       .where((s) => RegExp(r'^[A-Z0-9]{5}$').hasMatch(s))
       .toList();
   expect(codes, isNotEmpty, reason: 'the lobby should show a room code');
@@ -176,10 +175,10 @@ void main() {
     await tester.pumpAndSettle();
 
     // --- home --------------------------------------------------------------
-    expect(find.text('PHOTO'), findsOneWidget);
+    expect(find.text('Photo Blame'), findsOneWidget);
     await tester.enterText(find.byType(TextField).first, 'Host');
     await tester.pump();
-    await tester.tap(find.text('Start a game'));
+    await tester.tap(find.text('Start a new game'));
     await pumpUntil(tester, () => _visible(find.byType(LobbyScreen)),
         reason: 'the lobby');
 
@@ -201,9 +200,23 @@ void main() {
       );
       final refusal = currentSnack(tester);
       expect(refusal, isNull, reason: 'sampling photos was refused: $refusal');
+      // The sheet is built off-screen and slides up, so the button exists a
+      // moment before it can be hit. pumpAndSettle would never return: the
+      // lobby's button spins for as long as the sheet is open.
+      for (var i = 0; i < 10; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
       await tester.tap(find.text('Use these'));
-      await pumpUntil(tester, () => _visible(find.textContaining('Added')),
-          timeout: const Duration(seconds: 60), reason: 'the upload to finish');
+      await pumpUntil(
+        tester,
+        () =>
+            _visible(find.textContaining(RegExp(r'\d+ photos?'))) ||
+            currentSnack(tester) != null,
+        timeout: const Duration(seconds: 60),
+        reason: 'the upload to finish',
+      );
+      final failure = currentSnack(tester);
+      expect(failure, isNull, reason: 'uploading photos failed: $failure');
     } else {
       // Contribute over the API instead, so every step after this one still
       // runs. See photoAccessGranted for when and why this happens.
@@ -218,7 +231,7 @@ void main() {
     final other = RemotePlayer(code);
     addTearDown(other.close);
     await other.join('Guest');
-    await pumpUntil(tester, () => _visible(find.text('GUEST')),
+    await pumpUntil(tester, () => _visible(find.text('Guest')),
         reason: "the roster to show the player who joined");
     await other.uploadPhoto();
 
@@ -228,12 +241,18 @@ void main() {
         reason: 'START to unlock once two players have photos');
 
     // Shortest game the lobby allows, so the round timer doesn't dominate.
+    await tester.tap(find.text('Change'));
+    await pumpUntil(tester, () => _visible(find.byTooltip('Fewer Rounds')),
+        reason: 'the settings sheet');
     for (var i = 0; i < 4; i++) {
       await tester.tap(find.byTooltip('Fewer Rounds'));
       await tester.pump(const Duration(milliseconds: 300));
     }
     await pumpUntil(tester, () => _visible(find.text('1')),
         reason: 'the round count to reach 1');
+    Navigator.of(tester.element(find.text('Game settings'))).pop();
+    await pumpUntil(tester, () => !_visible(find.text('Game settings')),
+        reason: 'the settings sheet to close');
 
     // --- the game ---------------------------------------------------------
     await tester.tap(find.text('Start game'));
@@ -247,11 +266,11 @@ void main() {
       reason: 'the game screen',
     );
 
-    // Guessing is the whole point; the band is the other player's name.
-    final guestBand = find.text('GUEST');
-    await pumpUntil(tester, () => _visible(guestBand),
-        reason: 'the guess bands');
-    await tester.tap(guestBand);
+    // Guessing is the whole point; the button is the other player's name.
+    final guestButton = find.text('Guest');
+    await pumpUntil(tester, () => _visible(guestButton),
+        reason: 'the guess buttons');
+    await tester.tap(guestButton);
     // The instant banner is the proof the guess actually reached the server;
     // without it the round would simply time out and still reveal.
     await pumpUntil(
@@ -264,6 +283,6 @@ void main() {
     // --- results ----------------------------------------------------------
     await pumpUntil(tester, () => _visible(find.text('Leave game')),
         timeout: const Duration(seconds: 60), reason: 'the leaderboard');
-    expect(find.text('HOST'), findsWidgets);
+    expect(find.text('Host'), findsWidgets);
   });
 }

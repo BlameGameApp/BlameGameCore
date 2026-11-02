@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../state/game_controller.dart';
 import '../theme/app_theme.dart';
-import 'band.dart';
 import 'error_text.dart';
 import 'snack.dart';
 
@@ -11,8 +10,6 @@ import 'snack.dart';
 /// Events that fired while disconnected are gone, so reconnecting re-seeds
 /// from the server snapshot. Without this a dropped socket leaves the player
 /// staring at a frozen screen with no explanation and no way back in.
-///
-/// Sits under a screen's top band, which is what clears the status bar.
 class ConnectionBanner extends StatefulWidget {
   final GameController controller;
 
@@ -46,30 +43,41 @@ class _ConnectionBannerState extends State<ConnectionBanner> {
     // An automatic retry is already queued, so offering Retry would just be a
     // button that duplicates work already under way.
     final busy = _retrying || widget.controller.isReconnecting;
-    final text = uiText(16, weight: 700, color: colors.ink);
-    return Band(
-      color: colors.vermilion,
-      height: 52,
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(busy ? 'Reconnecting…' : 'Connection lost', style: text),
-          ),
-          if (busy)
-            SizedBox(
-              width: 18,
-              height: 18,
-              child: CircularProgressIndicator(
-                strokeWidth: 3,
-                color: colors.ink,
+    return Material(
+      color: colors.alert,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        child: SizedBox(
+          height: 48,
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  busy ? 'Reconnecting…' : 'Connection lost',
+                  style: TextStyle(
+                    color: colors.paper,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
               ),
-            )
-          else
-            TextButton(
-              onPressed: _retry,
-              child: Text('Retry', style: text),
-            ),
-        ],
+              if (busy)
+                SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: colors.paper,
+                  ),
+                )
+              else
+                TextButton(
+                  onPressed: _retry,
+                  style: TextButton.styleFrom(foregroundColor: colors.paper),
+                  child: const Text('Retry'),
+                ),
+            ],
+          ),
+        ),
       ),
     );
   }

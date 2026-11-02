@@ -4,12 +4,11 @@ import 'package:flutter/services.dart';
 import 'config.dart';
 import 'screens/home_screen.dart';
 import 'theme/app_theme.dart';
-import 'ui/band.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  // Every screen is a tall stack of bands. Sideways there is no height to put
-  // them in, and the lobby alone needs more than a landscape phone has.
+  // The round screen needs height for the photo and the names under it, and
+  // the game is played holding the phone in one hand.
   SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
   runApp(const PhotoBlameApp());
 }
@@ -24,11 +23,10 @@ class PhotoBlameApp extends StatelessWidget {
       title: 'Photo Blame',
       debugShowCheckedModeBanner: false,
       theme: buildAppTheme(),
-      // Poster type ignores the system text size, since it's already as big as
-      // its band. Small text honours it up to the point where a full lobby on
-      // a small phone would run out of height.
-      builder: (context, child) => MediaQuery.withClampedTextScaling(
-        maxScaleFactor: 1.3,
+      // Every screen is light, whatever the system setting. Without this a
+      // phone in dark mode draws a white clock on a white screen.
+      builder: (context, child) => AnnotatedRegion<SystemUiOverlayStyle>(
+        value: SystemUiOverlayStyle.dark,
         child: child!,
       ),
       // A build with no usable backend can't do anything at all, so it says so
@@ -48,20 +46,18 @@ class _MisconfiguredScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = context.colors;
-    return PosterScaffold(
-      top: colors.vermilion,
-      body: Band(
-        color: colors.vermilion,
-        padding: const EdgeInsets.all(bandGutter),
-        child: SafeArea(
+    final text = Theme.of(context).textTheme;
+    return Scaffold(
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.end,
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Text('Not configured', style: uiText(34, weight: 900)),
+              Text('Not configured', style: text.headlineSmall),
               const SizedBox(height: 12),
-              Text(problem, style: uiText(16)),
+              Text(problem, style: text.bodyLarge),
             ],
           ),
         ),

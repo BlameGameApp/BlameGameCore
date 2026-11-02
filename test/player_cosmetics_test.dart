@@ -38,26 +38,12 @@ void main() {
       expect(room.inkOf(null).fill, isNotNull);
     });
 
-    // Names are huge, but the small line above them isn't, so hold every ink
-    // to the body-text bar rather than the one for large type.
-    test('text on every ink meets WCAG AA', () {
+    test("the initial on every player's colour meets WCAG AA", () {
       for (final ink in playerInks) {
         expect(
           _contrast(ink.fill, ink.on),
           greaterThanOrEqualTo(4.5),
           reason: '${ink.on} on ${ink.fill}',
-        );
-      }
-    });
-
-    // Bands stack in join order, so neighbours have to separate on brightness
-    // alone for anyone who can't rely on hue.
-    test('neighbouring seats differ in brightness', () {
-      for (var i = 0; i < 7; i++) {
-        expect(
-          _contrast(playerInks[i].fill, playerInks[i + 1].fill),
-          greaterThan(1.5),
-          reason: 'seat $i against seat ${i + 1}',
         );
       }
     });

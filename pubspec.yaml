@@ -70,12 +70,6 @@ flutter:
   # the material Icons class.
   uses-material-design: true
 
-  fonts:
-    # Variable (wdth 50-150, wght 100-900). See lib/ui/fit_text.dart for why.
-    - family: Anybody
-      fonts:
-        - asset: assets/fonts/Anybody-Variable.ttf
-
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
 

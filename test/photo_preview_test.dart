@@ -40,6 +40,9 @@ class FakeSampler implements PhotoSampler {
         SampledPhoto(id: id, thumbnail: _png, bytes: Uint8List.fromList([1])),
     ];
   }
+
+  @override
+  Future<void> openSettings() async {}
 }
 
 /// The ADD PHOTOS button shows an infinite spinner while the preview is open,
@@ -79,7 +82,7 @@ void main() {
     ]);
     await _openPreview(tester, sampler);
 
-    expect(find.text('These photos?'), findsOneWidget);
+    expect(find.text('Share these photos?'), findsOneWidget);
     expect(find.byType(Image), findsNWidgets(3));
     expect(find.text('Use these'), findsOneWidget);
     expect(find.text('Reshuffle'), findsOneWidget);
@@ -100,7 +103,7 @@ void main() {
     expect(sampler.excludes.first, isEmpty);
     expect(sampler.excludes.last, {'a', 'b'});
     // Still previewing, still nothing uploaded.
-    expect(find.text('These photos?'), findsOneWidget);
+    expect(find.text('Share these photos?'), findsOneWidget);
   });
 
   testWidgets('a second reshuffle excludes both earlier batches',
@@ -167,7 +170,7 @@ void main() {
     await tester.tap(find.text('Add photos'));
     await settle(tester);
 
-    expect(find.text('These photos?'), findsNothing);
+    expect(find.text('Share these photos?'), findsNothing);
     expect(find.text('Reshuffle'), findsNothing);
     // Straight to the server, no confirmation step.
     expect(h.http.countFor('/photos'), 2);
@@ -182,7 +185,7 @@ void main() {
 
     final hard = await harness(snapshot: _hardcoreSnapshot);
     await pumpScreen(tester, LobbyScreen(controller: hard.controller));
-    expect(find.textContaining('Hardcore:'), findsOneWidget);
+    expect(find.textContaining('Hardcore mode:'), findsOneWidget);
     expect(
       find.textContaining('without showing them to you first'),
       findsOneWidget,
@@ -223,7 +226,7 @@ void main() {
 
     await tester.tap(find.text('Add photos'));
     await settle(tester);
-    Navigator.of(tester.element(find.text('These photos?'))).pop();
+    Navigator.of(tester.element(find.text('Share these photos?'))).pop();
     await settle(tester);
 
     expect(h.http.countFor('/photos'), 0);

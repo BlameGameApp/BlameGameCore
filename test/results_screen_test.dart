@@ -26,8 +26,8 @@ void main() {
     final h = await finishedGame(tester);
     await pumpScreen(tester, ResultsScreen(controller: h.controller));
 
-    expect(find.text('JAKE'), findsWidgets);
-    expect(find.text('EMMA'), findsWidgets);
+    expect(find.text('Jake'), findsWidgets);
+    expect(find.text('Emma'), findsWidgets);
     expect(find.text('2400 points'), findsOneWidget);
     expect(find.text('1500 points'), findsOneWidget);
   });

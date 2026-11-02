@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:photo_blame/models/game_models.dart';
 import 'package:photo_blame/screens/lobby_screen.dart';
@@ -12,19 +13,32 @@ void main() {
     await pumpScreen(tester, LobbyScreen(controller: h.controller));
 
     expect(find.text('ABC12'), findsOneWidget);
-    expect(find.text('EMMA'), findsOneWidget);
-    expect(find.text('You, hosting'), findsOneWidget);
-    expect(find.text('JAKE'), findsOneWidget);
+    expect(find.text('Emma (you)'), findsOneWidget);
+    expect(find.text('Host, no photos yet'), findsOneWidget);
+    expect(find.text('Jake'), findsOneWidget);
+    expect(find.text('Players (2)'), findsOneWidget);
   });
 
-  testWidgets('start is blocked until two people have added photos',
+  testWidgets('the main button is always the next thing to do',
       (tester) async {
     final h = await harness();
     await pumpScreen(tester, LobbyScreen(controller: h.controller));
 
-    // Two players, but nobody has uploaded.
-    expect(find.text('Need photos from 2+ players'), findsOneWidget);
+    // Nothing uploaded yet, so that comes first.
+    expect(find.text('Add photos'), findsOneWidget);
     expect(find.text('Start game'), findsNothing);
+
+    await h.emit(
+      tester,
+      PhotosUpdated([
+        player(id: 'me', name: 'Emma', isHost: true, photoCount: 3),
+        player(id: 'p2', name: 'Jake'),
+      ]),
+    );
+
+    // One uploader isn't enough, and the button says what's being waited for.
+    expect(find.text('Waiting for another player to add photos'), findsOneWidget);
+    expect(find.text('Add more photos'), findsOneWidget);
 
     await h.emit(
       tester,
@@ -35,21 +49,74 @@ void main() {
     );
 
     expect(find.text('Start game'), findsOneWidget);
+    expect(find.text('Add more photos'), findsOneWidget);
   });
 
-  testWidgets('one uploader is not enough', (tester) async {
+  testWidgets('a host with no photos can still start once two others have',
+      (tester) async {
     final h = await harness();
     await pumpScreen(tester, LobbyScreen(controller: h.controller));
 
     await h.emit(
       tester,
       PhotosUpdated([
-        player(id: 'me', name: 'Emma', isHost: true, photoCount: 5),
-        player(id: 'p2', name: 'Jake'),
+        player(id: 'me', name: 'Emma', isHost: true),
+        player(id: 'p2', name: 'Jake', photoCount: 1),
+        player(id: 'p3', name: 'Mia', photoCount: 1),
       ]),
     );
 
-    expect(find.text('Need photos from 2+ players'), findsOneWidget);
+    expect(find.text('Start game'), findsOneWidget);
+    expect(find.text('Add photos'), findsOneWidget);
+  });
+
+  testWidgets('photos stop being offered at the server limit', (tester) async {
+    final h = await harness();
+    await pumpScreen(tester, LobbyScreen(controller: h.controller));
+
+    await h.emit(
+      tester,
+      PhotosUpdated([
+        player(id: 'me', name: 'Emma', isHost: true, photoCount: 10),
+        player(id: 'p2', name: 'Jake', photoCount: 1),
+      ]),
+    );
+
+    expect(find.text('Add more photos'), findsNothing);
+  });
+
+  testWidgets('tapping the code copies it, without covering the main button',
+      (tester) async {
+    final h = await harness();
+    await pumpScreen(tester, LobbyScreen(controller: h.controller));
+
+    String? copied;
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      (call) async {
+        if (call.method == 'Clipboard.setData') {
+          copied = (call.arguments as Map)['text'] as String;
+        }
+        return null;
+      },
+    );
+    addTearDown(
+      () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        null,
+      ),
+    );
+
+    await tester.tap(find.text('ABC12'));
+    await tester.pump();
+    await tester.pump();
+
+    expect(copied, 'ABC12');
+    expect(find.text('Copied'), findsOneWidget);
+    expect(find.byType(SnackBar), findsNothing);
+
+    await tester.pump(const Duration(seconds: 2));
+    expect(find.text('Copied'), findsNothing);
   });
 
   testWidgets('players show real readiness, not a decorative tick',
@@ -57,8 +124,9 @@ void main() {
     final h = await harness();
     await pumpScreen(tester, LobbyScreen(controller: h.controller));
 
-    // Nobody has uploaded, and every band says so.
-    expect(find.text('No photos yet'), findsNWidgets(2));
+    // Nobody has uploaded, and every row says so.
+    expect(find.text('0 of 2 ready'), findsOneWidget);
+    expect(find.text('No photos yet'), findsOneWidget);
 
     await h.emit(
       tester,
@@ -68,8 +136,8 @@ void main() {
       ]),
     );
 
-    expect(find.text('No photos yet'), findsNothing);
-    expect(find.text('1 photo'), findsOneWidget);
+    expect(find.text('2 of 2 ready'), findsOneWidget);
+    expect(find.text('Host, 1 photo'), findsOneWidget);
     expect(find.text('3 photos'), findsOneWidget);
   });
 
@@ -78,7 +146,18 @@ void main() {
     await pumpScreen(tester, LobbyScreen(controller: h.controller));
 
     expect(find.text('Start game'), findsNothing);
-    expect(find.text('Need photos from 2+ players'), findsNothing);
+    expect(find.text('Add photos'), findsOneWidget);
+
+    await h.emit(
+      tester,
+      PhotosUpdated([
+        player(id: 'me', name: 'Emma', photoCount: 1),
+        player(id: 'p2', name: 'Jake', isHost: true, photoCount: 1),
+      ]),
+    );
+
+    expect(find.text('Waiting for the host to start'), findsOneWidget);
+    expect(find.text('Start game'), findsNothing);
   });
 
   testWidgets('the leave control is a labelled button, not a bare icon',
@@ -111,15 +190,39 @@ void main() {
     expect(find.text('Retry'), findsOneWidget);
   });
 
-  testWidgets('leaving posts to the server and pops the lobby', (tester) async {
+  testWidgets('leaving asks first, then posts to the server and pops the lobby',
+      (tester) async {
     final h = await harness();
     await pumpScreen(tester, LobbyScreen(controller: h.controller));
 
     await tester.tap(find.byTooltip('Leave room'));
     await tester.pumpAndSettle();
+    expect(find.text('Leave this game?'), findsOneWidget);
+    expect(h.http.countEndingWith('/leave'), 0);
+
+    await tester.tap(find.text('Stay'));
+    await tester.pumpAndSettle();
+    expect(find.byType(LobbyScreen), findsOneWidget);
+    expect(h.http.countEndingWith('/leave'), 0);
+
+    await tester.tap(find.byTooltip('Leave room'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Leave'));
+    await tester.pumpAndSettle();
 
     expect(h.http.countEndingWith('/leave'), 1);
     expect(find.byType(LobbyScreen), findsNothing);
+  });
+
+  testWidgets('a swipe back asks too', (tester) async {
+    final h = await harness();
+    await pumpScreen(tester, LobbyScreen(controller: h.controller));
+
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+
+    expect(find.text('Leave this game?'), findsOneWidget);
+    expect(find.byType(LobbyScreen), findsOneWidget);
   });
 
   testWidgets('the host can remove another player, but not themselves',
@@ -184,7 +287,7 @@ void main() {
   testWidgets('another player leaving just updates the roster', (tester) async {
     final h = await harness();
     await pumpScreen(tester, LobbyScreen(controller: h.controller));
-    expect(find.text('JAKE'), findsOneWidget);
+    expect(find.text('Jake'), findsOneWidget);
 
     await h.emit(
       tester,
@@ -195,8 +298,8 @@ void main() {
       ),
     );
 
-    expect(find.text('EMMA'), findsOneWidget);
-    expect(find.text('JAKE'), findsNothing);
+    expect(find.text('Emma (you)'), findsOneWidget);
+    expect(find.text('Jake'), findsNothing);
     expect(find.byType(LobbyScreen), findsOneWidget);
   });
 
@@ -205,8 +308,12 @@ void main() {
     final h = await harness();
     await pumpScreen(tester, LobbyScreen(controller: h.controller));
 
+    expect(find.text('5 rounds, 10 seconds each'), findsOneWidget);
+
+    await tester.tap(find.text('Change'));
+    await tester.pumpAndSettle();
     expect(find.text('Rounds'), findsOneWidget);
-    expect(find.text('Seconds'), findsOneWidget);
+    expect(find.text('Seconds per round'), findsOneWidget);
 
     await tester.tap(find.byTooltip('More Rounds'));
     await tester.pump();
@@ -231,15 +338,16 @@ void main() {
       find.text('9 rounds, 25 seconds each'),
       findsOneWidget,
     );
-    expect(find.textContaining('Hardcore:'), findsOneWidget);
-    expect(find.byTooltip('More Rounds'), findsNothing);
-    expect(find.byType(Switch), findsNothing);
+    expect(find.textContaining('Hardcore mode:'), findsOneWidget);
+    expect(find.text('Change'), findsNothing);
   });
 
   testWidgets('hardcore is editable until the first photo lands, then locks',
       (tester) async {
     final h = await harness();
     await pumpScreen(tester, LobbyScreen(controller: h.controller));
+    await tester.tap(find.text('Change'));
+    await tester.pumpAndSettle();
 
     final switchFinder = find.byType(Switch);
     expect(tester.widget<Switch>(switchFinder).onChanged, isNotNull);

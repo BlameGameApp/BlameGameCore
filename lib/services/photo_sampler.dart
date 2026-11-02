@@ -59,6 +59,10 @@ class PhotoSampler {
 
   PhotoSampler({Random? random}) : _random = random ?? Random();
 
+  /// Opens this app's page in the system Settings, which is the only place a
+  /// denied photo permission can be changed.
+  Future<void> openSettings() => PhotoManager.openSetting();
+
   /// Requests photo-library permission, enumerates the most-recent album, and
   /// returns up to [count] randomly-sampled photos.
   ///

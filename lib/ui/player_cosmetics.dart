@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/game_models.dart';
 
-/// A player's flat colour and the text colour that reads on it.
+/// A player's colour and the text colour that reads on it.
 class PlayerInk {
   final Color fill;
   final Color on;
@@ -13,10 +13,7 @@ class PlayerInk {
 const _black = Color(0xFF000000);
 const _white = Color(0xFFFFFFFF);
 
-/// One ink per seat: rooms cap at 12 players, so nobody ever shares a colour.
-///
-/// The order is deliberate. Join order walks down it, and bands stack in join
-/// order, so light and dark alternate and two neighbours never blur together.
+/// One colour per seat: rooms cap at 12 players, so nobody ever shares one.
 const List<PlayerInk> playerInks = [
   PlayerInk(Color(0xFFFFC200), _black), // marigold
   PlayerInk(Color(0xFFEE3A1C), _black), // vermilion
@@ -41,8 +38,7 @@ const List<PlayerInk> playerInks = [
 ///
 /// The seat comes from the room's join order, which the server fixes for every
 /// client, because a colour hashed from the id alone collides: seven players
-/// in twelve buckets share one more often than not, and people are told apart
-/// here by their colour.
+/// in twelve buckets share one more often than not.
 extension PlayerInks on List<GamePlayer> {
   PlayerInk inkOf(String? id) {
     final seat = indexWhere((p) => p.id == id);
@@ -50,8 +46,8 @@ extension PlayerInks on List<GamePlayer> {
   }
 }
 
-/// Deterministic fallback for an id no longer in the room, such as the owner of
-/// a photo who left mid-game.
+/// Deterministic fallback for an id no longer in the room, such as a player who
+/// left before the final rankings.
 ///
 /// Deliberately not `String.hashCode`: Dart only guarantees that to be
 /// consistent within a single process, so the VM and dart2js disagree and an

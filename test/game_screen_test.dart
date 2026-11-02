@@ -32,8 +32,8 @@ void main() {
       (tester) async {
     final h = await inRound(tester);
 
-    expect(find.text('EMMA'), findsOneWidget);
-    expect(find.text('JAKE'), findsOneWidget);
+    expect(find.text('Emma'), findsOneWidget);
+    expect(find.text('Jake'), findsOneWidget);
 
     await unmount(tester);
     h.controller.dispose();
@@ -43,7 +43,7 @@ void main() {
       (tester) async {
     final h = await inRound(tester);
 
-    await tester.tap(find.text('JAKE'));
+    await tester.tap(find.text('Jake'));
     await tester.pump();
     await tester.pump();
 
@@ -63,7 +63,7 @@ void main() {
       (tester) async {
     final h = await inRound(tester, guess: 500);
 
-    await tester.tap(find.text('JAKE'));
+    await tester.tap(find.text('Jake'));
     await tester.pump();
     await tester.pump();
 
@@ -86,8 +86,66 @@ void main() {
     expect(h.controller.phase, GamePhase.revealed);
     // Jake owns the photo, so the band must say so — this is the payoff of the
     // whole round and used to render for zero frames.
-    expect(find.text('It was'), findsOneWidget);
-    expect(find.text('JAKE'), findsWidgets);
+    expect(find.text("It was Jake's photo"), findsOneWidget);
+
+    await unmount(tester);
+    h.controller.dispose();
+  });
+
+  testWidgets('the guesses stay put from the first second to the reveal',
+      (tester) async {
+    final h = await inRound(tester, guess: const {'points': 0, 'correct': false});
+    final before = tester.getTopLeft(find.text('Jake'));
+
+    await tester.tap(find.text('Jake'));
+    await tester.pump();
+    await tester.pump();
+    expect(tester.getTopLeft(find.text('Jake')), before);
+
+    await h.emit(tester, const RoundRevealed(roundIndex: 0, ownerId: 'me'));
+    expect(tester.getTopLeft(find.text('Jake')), before);
+    // Both answers are marked with more than a colour.
+    expect(find.byIcon(Icons.check), findsOneWidget);
+    expect(find.byIcon(Icons.close), findsNWidgets(2)); // Jake, and Leave.
+    expect(find.text('You guessed Jake'), findsOneWidget);
+
+    await unmount(tester);
+    h.controller.dispose();
+  });
+
+  testWidgets('a swipe back asks first: there is no way back into a game',
+      (tester) async {
+    final h = await inRound(tester);
+
+    await tester.binding.handlePopRoute();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.text('Leave this game?'), findsOneWidget);
+    expect(find.byType(GameScreen), findsOneWidget);
+    expect(h.http.countEndingWith('/leave'), 0);
+
+    await tester.tap(find.text('Stay'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('Leave this game?'), findsNothing);
+    expect(h.http.countEndingWith('/leave'), 0);
+
+    await unmount(tester);
+    h.controller.dispose();
+  });
+
+  testWidgets('the leave button asks, then really leaves', (tester) async {
+    final h = await inRound(tester);
+
+    await tester.tap(find.byTooltip('Leave game'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.tap(find.text('Leave'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(h.http.countEndingWith('/leave'), 1);
 
     await unmount(tester);
     h.controller.dispose();
@@ -141,7 +199,7 @@ void main() {
     h.controller.dispose();
   });
 
-  testWidgets('guess bands are buttons to a screen reader, not plain text',
+  testWidgets('guesses are buttons to a screen reader, not plain text',
       (tester) async {
     final handle = tester.ensureSemantics();
     final h = await inRound(tester);

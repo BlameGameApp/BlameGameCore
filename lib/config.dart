@@ -46,6 +46,9 @@ String? apiBaseProblemFor(String base, {required bool release}) {
 /// How many random photos to auto-sample from the camera roll per player.
 const int photoSampleCount = 5;
 
+/// The server refuses uploads past this, so the lobby stops offering them.
+const int maxPhotosPerPlayer = 10;
+
 /// WebSocket base URL, derived from [apiBase] by swapping the scheme
 /// (`http`->`ws`, `https`->`wss`).
 String get wsBase => wsBaseFor(apiBase);

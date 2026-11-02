@@ -3,9 +3,10 @@ import 'package:flutter/material.dart';
 import '../models/game_models.dart';
 import '../state/game_controller.dart';
 import '../theme/app_theme.dart';
-import '../ui/band.dart';
+import '../ui/app_buttons.dart';
 import '../ui/controller_screen.dart';
 import '../ui/error_text.dart';
+import '../ui/player_avatar.dart';
 import '../ui/player_cosmetics.dart';
 import 'lobby_screen.dart';
 
@@ -51,72 +52,104 @@ class _ResultsScreenState extends State<ResultsScreen>
     }
   }
 
+  /// The result in one line. A tie or a scoreless game is called what it is,
+  /// because the top of the list isn't a winner in either.
+  String get _headline {
+    final ranked = _ranked;
+    if (ranked.isEmpty || ranked.first.score == 0) return 'No points this time';
+    if (ranked.length > 1 && ranked[1].score == ranked.first.score) {
+      return "It's a tie!";
+    }
+    return '${ranked.first.name} wins!';
+  }
+
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    final ranked = _ranked;
-    final winnerInk = ranked.isEmpty
-        ? PlayerInk(colors.ink, colors.paper)
-        : controller.players.inkOf(ranked.first.id);
-    return PosterScaffold(
-      top: winnerInk.fill,
+    final text = Theme.of(context).textTheme;
+    return Scaffold(
       body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Expanded(
-            child: LayoutBuilder(
-              builder: (context, box) => ListView.builder(
-                padding: EdgeInsets.zero,
-                physics: const ClampingScrollPhysics(),
-                itemCount: ranked.length,
-                itemBuilder: (context, i) => SizedBox(
-                  height: _bandHeight(ranked[i], ranked, box.maxHeight),
-                  child: _band(ranked[i], i),
+          ColoredBox(
+            color: colors.brand,
+            child: SafeArea(
+              bottom: false,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+                child: Text(
+                  _headline,
+                  style: text.displaySmall!.copyWith(color: colors.ink),
                 ),
               ),
             ),
           ),
-          if (controller.isHost)
-            BandButton(
-              label: _resetting ? 'Starting…' : 'Play again',
-              onPressed: _resetting ? null : _startNewRound,
-              color: colors.paper,
-              textColor: colors.ink,
-              busy: _resetting,
+          Expanded(
+            child: ListView.builder(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              itemCount: _ranked.length,
+              itemBuilder: (context, i) => _row(_ranked[i], i + 1),
             ),
-          BandButton(
-            label: 'Leave game',
-            onPressed: () =>
-                Navigator.of(context).popUntil((route) => route.isFirst),
-            color: colors.ink,
-            textColor: colors.paper,
-            last: true,
+          ),
+          SafeArea(
+            top: false,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (controller.isHost) ...[
+                    PrimaryButton(
+                      label: 'Play again',
+                      onPressed: _startNewRound,
+                      busy: _resetting,
+                    ),
+                    const SizedBox(height: 8),
+                  ] else ...[
+                    Text(
+                      'Waiting for the host to start a new game',
+                      textAlign: TextAlign.center,
+                      style: text.bodyMedium,
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+                  SecondaryButton(
+                    label: 'Leave game',
+                    onPressed: () => Navigator.of(
+                      context,
+                    ).popUntil((route) => route.isFirst),
+                  ),
+                ],
+              ),
+            ),
           ),
         ],
       ),
     );
   }
 
-  /// The leaderboard is drawn to scale: every band gets a floor, and the room
-  /// left over is shared out by score. Winning takes up the poster.
-  double _bandHeight(GamePlayer player, List<GamePlayer> ranked, double room) {
-    final top = MediaQuery.paddingOf(context).top;
-    const floor = 84.0;
-    final spare = room - top - ranked.length * floor;
-    final extra = player == ranked.first ? top : 0.0;
-    if (spare <= 0) return floor + extra;
-    final total = ranked.fold<int>(0, (sum, p) => sum + p.score);
-    final share = total == 0 ? 1 / ranked.length : player.score / total;
-    return floor + spare * share + extra;
-  }
-
-  Widget _band(GamePlayer player, int rank) {
+  Widget _row(GamePlayer player, int rank) {
+    final text = Theme.of(context).textTheme;
     final isMe = player.id == controller.myPlayerId;
-    return PlayerBand(
-      name: player.name,
-      ink: controller.players.inkOf(player.id),
-      leading: isMe ? '${rank + 1}. You' : '${rank + 1}.',
-      trailing: '${player.score} points',
-      topInset: rank == 0 ? MediaQuery.paddingOf(context).top : 0,
+    return ListTile(
+      leading: SizedBox(
+        width: 72,
+        child: Row(
+          children: [
+            SizedBox(
+              width: 28,
+              child: Text('$rank', style: text.titleMedium),
+            ),
+            PlayerAvatar(
+              name: player.name,
+              ink: controller.players.inkOf(player.id),
+            ),
+          ],
+        ),
+      ),
+      title: Text(player.name, style: text.titleMedium),
+      subtitle: isMe ? const Text('You') : null,
+      trailing: Text('${player.score} points', style: text.titleMedium),
     );
   }
 }
