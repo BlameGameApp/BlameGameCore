@@ -12,8 +12,8 @@ import '../ui/app_buttons.dart';
 import '../ui/connection_banner.dart';
 import '../ui/controller_screen.dart';
 import '../ui/error_text.dart';
-import '../ui/player_avatar.dart';
 import '../ui/player_cosmetics.dart';
+import '../ui/player_token.dart';
 import '../ui/snack.dart';
 import 'game_screen.dart';
 
@@ -277,12 +277,16 @@ class _LobbyScreenState extends State<LobbyScreen>
                     _gameCode(),
                     _settingsSummary(),
                     _playersHeader(),
-                    for (final player in c.players) _playerRow(player),
+                    for (final player in c.players)
+                      KeyedSubtree(
+                        key: ValueKey(player.id),
+                        child: _playerRow(player),
+                      ),
                     if (c.players.length < 2)
                       Padding(
                         padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
                         child: Text(
-                          'Give your friends the code above so they can join.',
+                          'Round up some suspects: give them the code above.',
                           style: Theme.of(context).textTheme.bodyMedium,
                         ),
                       ),
@@ -378,7 +382,11 @@ class _LobbyScreenState extends State<LobbyScreen>
       final n => '$n photos',
     };
     return ListTile(
-      leading: PlayerAvatar(name: player.name, ink: c.players.inkOf(player.id)),
+      leading: PlayerToken(
+        name: player.name,
+        piece: c.players.pieceOf(player.id),
+        popIn: true,
+      ),
       title: Text(
         isMe ? '${player.name} (you)' : player.name,
         style: text.titleMedium,
@@ -400,6 +408,11 @@ class _LobbyScreenState extends State<LobbyScreen>
     );
   }
 
+  String get _gameLength {
+    final rounds = c.totalRounds == 1 ? '1 round' : '${c.totalRounds} rounds';
+    return '$rounds, ${c.roundSeconds} seconds each';
+  }
+
   /// Everyone sees what the game will be. Only the host gets to change it.
   Widget _settingsSummary() {
     final text = Theme.of(context).textTheme;
@@ -411,7 +424,7 @@ class _LobbyScreenState extends State<LobbyScreen>
           children: [
             Expanded(
               child: Text(
-                '${c.totalRounds} rounds, ${c.roundSeconds} seconds each',
+                _gameLength,
                 style: text.bodyMedium,
               ),
             ),
@@ -496,11 +509,18 @@ class _LobbyScreenState extends State<LobbyScreen>
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           primary,
-          if (canAdd && !addIsPrimary) ...[
+          if (!addIsPrimary) ...[
             const SizedBox(height: 8),
+            // Stays at the limit, disabled: the button above it is what the
+            // player taps next, and it shouldn't move out from under their
+            // thumb. This way the limit gets explained as well.
             SecondaryButton(
-              label: needPhotos ? 'Add photos' : 'Add more photos',
-              onPressed: onAdd,
+              label: !canAdd
+                  ? 'Photo limit reached'
+                  : needPhotos
+                  ? 'Add photos'
+                  : 'Add more photos',
+              onPressed: canAdd ? onAdd : null,
               busy: _uploading,
             ),
           ],

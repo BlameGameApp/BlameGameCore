@@ -24,7 +24,7 @@ Layered: `config → models → services → state → screens`, with `theme/` a
 - `ui/` — cross-screen presentation: `player_cosmetics.dart`, `connection_banner.dart`, `snack.dart`, `error_text.dart` (`friendlyError` unwraps the backend's `{"detail": ...}` so raw JSON never reaches a player), and:
   - `controller_screen.dart` — the `GameControllerScreen` mixin every controller-driven screen uses. It owns the listener wiring, the `mounted` guard (the callback fires from the WebSocket stream, so `Navigator.of(context)` can throw) and `navigateOnce`, which latches route pushes so an event burst can't push the same screen twice. Each of those was hand-rolled in three screens; TASK-46 was the latch going wrong.
   - `app_buttons.dart` — `PrimaryButton` and `SecondaryButton`; see **UX rules**.
-  - `player_avatar.dart` — a player's colour with their initial on it.
+  - `player_token.dart`, `title_tokens.dart`, `confetti.dart` — the playful layer; see **UX rules**.
 - `screens/` — `home`, `lobby`, `game`, `results`.
 - `main.dart` — `PhotoBlameApp`, plus the misconfigured-build screen `config.dart` gates on.
 
@@ -45,7 +45,7 @@ Pure logic under thin I/O layers:
 ```sh
 flutter pub get
 flutter analyze
-flutter test                     # currently 122 tests
+flutter test                     # currently 135 tests
 flutter run                      # needs a simulator/device
 
 # On a real simulator, against a real backend (start it first):
@@ -151,7 +151,7 @@ backlog browser                  # web UI
 
 Ease of use comes first; the look stays out of the way. An earlier poster-style design
 with stretched type was dropped because names were too slow to read under a countdown.
-Keep to these:
+It's still a party game, so there's a playful layer on top. Keep to these:
 
 - **Standard controls, system font.** Material widgets (`ListTile`, `AlertDialog`,
   `showModalBottomSheet`, `TextField`) before anything custom. No custom font.
@@ -162,8 +162,13 @@ Keep to these:
 - **Things stay where the thumb already is.** In a round the photo, prompt and guess
   buttons never move between the first second and the reveal; only their state changes.
   No animation stands in for that, so nothing is lost under reduced motion.
-- **Nothing rests on colour alone.** Right and wrong carry an icon and a sentence as well;
-  a player's colour comes with their initial and name.
+- **Nothing rests on colour alone.** Right and wrong carry an icon and a sentence as well.
+  A player's piece has its own shape as well as a colour, with their initial on it.
+- **Play goes on top of the controls, never into them.** Board-game pieces instead of
+  avatars, the title dropping in, a verdict sticker on the photo at each reveal, joke
+  titles on the leaderboard, confetti for an outright winner. All flat: no emoji, no
+  gradients. None of it moves a control or delays a turn, the plain answer always sits
+  next to the joke, and motion is skipped under reduced motion.
 - **Nothing covers the main button.** Confirm in place (the code shows "Copied", a
   player's row counts their photos). Snackbars are for failures only.
 - **Leaving is confirmed.** It costs a player their photos, and mid-game there's no way

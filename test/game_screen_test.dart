@@ -92,6 +92,54 @@ void main() {
     h.controller.dispose();
   });
 
+  testWidgets('the reveal puts a verdict on the photo', (tester) async {
+    final h = await inRound(tester);
+
+    await h.emit(tester, const RoundRevealed(roundIndex: 0, ownerId: 'p2'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Jake did it!'), findsOneWidget);
+
+    await unmount(tester);
+    h.controller.dispose();
+  });
+
+  testWidgets('your own photo gets you busted', (tester) async {
+    final h = await inRound(tester);
+
+    await h.emit(tester, const RoundRevealed(roundIndex: 0, ownerId: 'me'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Busted!'), findsOneWidget);
+
+    await unmount(tester);
+    h.controller.dispose();
+  });
+
+  testWidgets('sitting a round out gets called out', (tester) async {
+    final h = await inRound(tester);
+
+    await h.emit(tester, const RoundRevealed(roundIndex: 0, ownerId: 'p2'));
+
+    expect(find.text('You said nothing. Suspicious.'), findsOneWidget);
+
+    await unmount(tester);
+    h.controller.dispose();
+  });
+
+  testWidgets('each round asks the question differently', (tester) async {
+    final h = await inRound(tester);
+    expect(find.text('Whose photo is this?'), findsOneWidget);
+
+    await h.emit(tester, _round(index: 1));
+
+    expect(find.text('Whose photo is this?'), findsNothing);
+    expect(find.text("Who's to blame?"), findsOneWidget);
+
+    await unmount(tester);
+    h.controller.dispose();
+  });
+
   testWidgets('the guesses stay put from the first second to the reveal',
       (tester) async {
     final h = await inRound(tester, guess: const {'points': 0, 'correct': false});
@@ -107,7 +155,7 @@ void main() {
     // Both answers are marked with more than a colour.
     expect(find.byIcon(Icons.check), findsOneWidget);
     expect(find.byIcon(Icons.close), findsNWidgets(2)); // Jake, and Leave.
-    expect(find.text('You guessed Jake'), findsOneWidget);
+    expect(find.text('You blamed Jake. Not guilty.'), findsOneWidget);
 
     await unmount(tester);
     h.controller.dispose();

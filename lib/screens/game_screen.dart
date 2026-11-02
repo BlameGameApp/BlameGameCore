@@ -9,9 +9,28 @@ import '../theme/app_theme.dart';
 import '../ui/connection_banner.dart';
 import '../ui/controller_screen.dart';
 import '../ui/error_text.dart';
-import '../ui/player_avatar.dart';
 import '../ui/player_cosmetics.dart';
+import '../ui/player_token.dart';
 import 'results_screen.dart';
+
+/// A different question each round, so the same screen doesn't get stale over a
+/// long game. Every client is on the same round, so a room sees the same line.
+const _prompts = [
+  'Whose photo is this?',
+  "Who's to blame?",
+  'Who took this one?',
+  'Point the finger',
+  'Name the culprit',
+];
+
+/// What goes on the sticker when the answer comes out.
+final _verdicts = <String Function(String)>[
+  (name) => '$name did it!',
+  (name) => 'Blame $name!',
+  (name) => 'Guilty: $name',
+  (name) => "It's on $name",
+  (name) => '$name, caught!',
+];
 
 class GameScreen extends StatefulWidget {
   final GameController controller;
@@ -32,6 +51,7 @@ class _GameScreenState extends State<GameScreen>
   Timer? _displayTimer;
   int _shownRound = -1;
   String? _myGuessedPlayerId;
+  int _revealedRound = -1;
 
   @override
   void initState() {
@@ -63,7 +83,13 @@ class _GameScreenState extends State<GameScreen>
       _syncToRound();
     }
 
-    if (c.phase == GamePhase.revealed) _displayTimer?.cancel();
+    // Gated on the round: this fires for every event, including other
+    // players' results, and the buzz belongs to the reveal alone.
+    if (c.phase == GamePhase.revealed && _revealedRound != c.roundIndex) {
+      _revealedRound = c.roundIndex;
+      _displayTimer?.cancel();
+      HapticFeedback.mediumImpact();
+    }
     return false;
   }
 
@@ -266,29 +292,96 @@ class _GameScreenState extends State<GameScreen>
                 MediaQuery.devicePixelRatioOf(context))
             .round();
     final waiting = Center(child: CircularProgressIndicator(color: colors.ink));
-    return ColoredBox(
-      color: colors.ink,
-      child: photo == null
-          ? Center(child: CircularProgressIndicator(color: colors.paper))
-          : Image.network(
-              '$apiBase${photo.url}',
-              // The whole picture, not a crop: the clue may be in a corner.
-              fit: BoxFit.contain,
-              width: double.infinity,
-              height: double.infinity,
-              cacheWidth: decodeWidth,
-              semanticLabel: 'Photo for round ${c.roundIndex + 1}',
-              errorBuilder: (context, error, stack) => Center(
-                child: Icon(
-                  Icons.broken_image,
-                  color: colors.paper,
-                  size: 64,
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        ColoredBox(
+          color: colors.ink,
+          child: photo == null
+              ? Center(child: CircularProgressIndicator(color: colors.paper))
+              : Image.network(
+                  '$apiBase${photo.url}',
+                  // The whole picture, not a crop: the clue may be in a corner.
+                  fit: BoxFit.contain,
+                  width: double.infinity,
+                  height: double.infinity,
+                  cacheWidth: decodeWidth,
+                  semanticLabel: 'Photo for round ${c.roundIndex + 1}',
+                  errorBuilder: (context, error, stack) => Center(
+                    child: Icon(
+                      Icons.broken_image,
+                      color: colors.paper,
+                      size: 64,
+                    ),
+                  ),
+                  loadingBuilder: (context, child, progress) => progress == null
+                      ? child
+                      : ColoredBox(color: colors.paper, child: waiting),
                 ),
-              ),
-              loadingBuilder: (context, child, progress) => progress == null
-                  ? child
-                  : ColoredBox(color: colors.paper, child: waiting),
+        ),
+        if (c.phase == GamePhase.revealed) _sticker(),
+      ],
+    );
+  }
+
+  /// The round's punchline, slapped on the photo. It sits on top of the
+  /// picture rather than beside it, so nothing the player was looking at moves.
+  /// The plain answer is in the line below; this is only the fun of it.
+  Widget _sticker() {
+    final colors = context.colors;
+    final owner = c.revealedOwnerId;
+    final verdict = owner == c.myPlayerId
+        ? 'Busted!'
+        : _verdicts[c.roundIndex % _verdicts.length](c.revealedOwnerName);
+    return Align(
+      alignment: Alignment.bottomLeft,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 16, 40, 16),
+        child: TweenAnimationBuilder<double>(
+          key: ValueKey(c.roundIndex),
+          tween: Tween(begin: 0.3, end: 1),
+          duration: MediaQuery.disableAnimationsOf(context)
+              ? Duration.zero
+              : const Duration(milliseconds: 280),
+          curve: Curves.easeOutBack,
+          builder: (context, scale, child) => Transform.scale(
+            scale: scale,
+            child: Transform.rotate(angle: -0.06, child: child),
+          ),
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(8, 8, 14, 8),
+            decoration: BoxDecoration(
+              color: colors.paper,
+              border: Border.all(color: colors.ink, width: 2.5),
+              borderRadius: BorderRadius.circular(12),
             ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                PlayerToken(
+                  name: c.revealedOwnerName,
+                  piece: c.players.pieceOf(owner),
+                  radius: 16,
+                ),
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Text(
+                    verdict,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: colors.ink,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w800,
+                      height: 1.15,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 
@@ -308,11 +401,11 @@ class _GameScreenState extends State<GameScreen>
         detail = 'Correct! +$points points';
         color = colors.correct;
       } else if (guessed.isNotEmpty) {
-        detail = 'You guessed ${guessed.first.name}';
+        detail = 'You blamed ${guessed.first.name}. Not guilty.';
       } else if (c.hasGuessedThisRound) {
-        detail = 'Your guess was wrong';
+        detail = 'Wrong suspect';
       } else {
-        detail = 'No guess this round';
+        detail = 'You said nothing. Suspicious.';
       }
     } else if (c.hasGuessedThisRound) {
       if ((points ?? 0) > 0) {
@@ -325,7 +418,7 @@ class _GameScreenState extends State<GameScreen>
     } else if (_timeExpired) {
       headline = "Time's up";
     } else {
-      headline = 'Whose photo is this?';
+      headline = _prompts[c.roundIndex % _prompts.length];
     }
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
@@ -384,7 +477,9 @@ class _GameScreenState extends State<GameScreen>
                 children: [
                   for (final (j, player) in row.indexed) ...[
                     if (j > 0) const SizedBox(width: 8),
-                    Expanded(child: _guessButton(player, compact: columns == 3)),
+                    Expanded(
+                      child: _guessButton(player, compact: columns == 3),
+                    ),
                   ],
                 ],
               ),
@@ -442,9 +537,9 @@ class _GameScreenState extends State<GameScreen>
               child: Row(
                 children: [
                   if (!compact) ...[
-                    PlayerAvatar(
+                    PlayerToken(
                       name: player.name,
-                      ink: c.players.inkOf(player.id),
+                      piece: c.players.pieceOf(player.id),
                       radius: 16,
                     ),
                     const SizedBox(width: 8),

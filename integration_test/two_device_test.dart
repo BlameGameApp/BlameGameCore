@@ -22,7 +22,7 @@ import 'package:integration_test/integration_test.dart';
 import 'package:photo_blame/config.dart';
 import 'package:photo_blame/main.dart' as app;
 import 'package:photo_blame/screens/lobby_screen.dart';
-import 'package:photo_blame/ui/player_avatar.dart';
+import 'package:photo_blame/ui/player_token.dart';
 
 const roomCode = String.fromEnvironment('ROOM_CODE');
 const playerName = String.fromEnvironment('PLAYER_NAME', defaultValue: 'Player');
@@ -145,7 +145,7 @@ void main() {
       reason: 'the game screen',
     );
 
-    final anyButton = find.byType(PlayerAvatar);
+    final anyButton = find.byType(PlayerToken);
     await pumpUntil(tester, () => _visible(anyButton),
         reason: 'the guess buttons');
     await tester.tap(anyButton.first);

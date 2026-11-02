@@ -4,7 +4,7 @@ title: Redesign the app for ease of use
 status: In Progress
 assignee: []
 created_date: '2026-11-02 13:48'
-updated_date: '2026-11-02 15:08'
+updated_date: '2026-11-02 15:55'
 labels:
   - design
 milestone: m-3
@@ -27,4 +27,5 @@ Replace the dark gradient look with a calm, flat interface built on standard con
 - [x] #5 Leaving is confirmed, including a swipe back
 - [x] #6 A full room of long names fits the smallest iPhone and large text
 - [x] #7 No gradients remain in lib/
+- [x] #8 A playful layer sits on top of the controls, with no emoji or gradients
 <!-- AC:END -->

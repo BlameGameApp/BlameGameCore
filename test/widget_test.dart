@@ -11,12 +11,21 @@ void main() {
   testWidgets('Home screen renders title and actions', (tester) async {
     await tester.pumpWidget(const PhotoBlameApp());
 
-    expect(find.text('Photo Blame'), findsOneWidget);
+    expect(find.text('Guess whose photo it is'), findsOneWidget);
     expect(find.text('Join game'), findsOneWidget);
     expect(find.text('Start a new game'), findsOneWidget);
 
     // Name and game-code fields are present.
     expect(find.byType(TextField), findsNWidgets(2));
+  });
+
+  testWidgets('the title reads as one name to a screen reader', (tester) async {
+    final handle = tester.ensureSemantics();
+    await tester.pumpWidget(const PhotoBlameApp());
+
+    expect(find.bySemanticsLabel('Photo Blame'), findsOneWidget);
+
+    handle.dispose();
   });
 
   testWidgets('a name is required, instead of becoming a silent "Player"',

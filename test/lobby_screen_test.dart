@@ -70,9 +70,19 @@ void main() {
     expect(find.text('Add photos'), findsOneWidget);
   });
 
-  testWidgets('photos stop being offered at the server limit', (tester) async {
+  testWidgets('the photo limit is explained, and the start button stays put',
+      (tester) async {
     final h = await harness();
     await pumpScreen(tester, LobbyScreen(controller: h.controller));
+
+    await h.emit(
+      tester,
+      PhotosUpdated([
+        player(id: 'me', name: 'Emma', isHost: true, photoCount: 5),
+        player(id: 'p2', name: 'Jake', photoCount: 1),
+      ]),
+    );
+    final before = tester.getTopLeft(find.text('Start game'));
 
     await h.emit(
       tester,
@@ -83,6 +93,8 @@ void main() {
     );
 
     expect(find.text('Add more photos'), findsNothing);
+    expect(find.text('Photo limit reached'), findsOneWidget);
+    expect(tester.getTopLeft(find.text('Start game')), before);
   });
 
   testWidgets('tapping the code copies it, without covering the main button',
@@ -321,6 +333,18 @@ void main() {
     final posted = h.http.requests.where((r) => r.url.path.endsWith('/settings'));
     expect(posted, isNotEmpty);
     expect((posted.last as dynamic).body, contains('total_rounds'));
+  });
+
+  testWidgets('a one-round game reads as one round', (tester) async {
+    final h = await harness();
+    await pumpScreen(tester, LobbyScreen(controller: h.controller));
+
+    await h.emit(
+      tester,
+      const SettingsUpdated(totalRounds: 1, roundSeconds: 10, hardcore: false),
+    );
+
+    expect(find.text('1 round, 10 seconds each'), findsOneWidget);
   });
 
   testWidgets('a broadcast settings change reaches every client',

@@ -175,7 +175,7 @@ void main() {
     await tester.pumpAndSettle();
 
     // --- home --------------------------------------------------------------
-    expect(find.text('Photo Blame'), findsOneWidget);
+    expect(find.text('Guess whose photo it is'), findsOneWidget);
     await tester.enterText(find.byType(TextField).first, 'Host');
     await tester.pump();
     await tester.tap(find.text('Start a new game'));

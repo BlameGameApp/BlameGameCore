@@ -5,6 +5,7 @@ import '../state/game_controller.dart';
 import '../theme/app_theme.dart';
 import '../ui/app_buttons.dart';
 import '../ui/error_text.dart';
+import '../ui/title_tokens.dart';
 import 'lobby_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -129,6 +130,11 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _header() {
     final text = Theme.of(context).textTheme;
     final colors = context.colors;
+    // Five pieces to a row, filling the width but never oversized on a tablet,
+    // and smaller while typing so the form stays above the keyboard.
+    final width = MediaQuery.sizeOf(context).width;
+    final fullSize = ((width - 56) / 10).clamp(0.0, 34.0);
+    final typing = MediaQuery.viewInsetsOf(context).bottom > 0;
     return ColoredBox(
       color: colors.brand,
       child: SafeArea(
@@ -139,11 +145,12 @@ class _HomeScreenState extends State<HomeScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
-              Text(
-                'Photo Blame',
-                style: text.displaySmall!.copyWith(color: colors.ink),
+              TweenAnimationBuilder<double>(
+                tween: Tween(end: typing ? fullSize * 0.6 : fullSize),
+                duration: const Duration(milliseconds: 180),
+                builder: (context, radius, _) => TitleTokens(radius: radius),
               ),
-              const SizedBox(height: 4),
+              const SizedBox(height: 8),
               Text(
                 'Guess whose photo it is',
                 style: text.bodyLarge!.copyWith(color: colors.ink),

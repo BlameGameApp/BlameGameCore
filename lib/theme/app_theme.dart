@@ -81,6 +81,8 @@ ThemeData buildAppTheme() {
       scrolledUnderElevation: 0,
     ),
     inputDecorationTheme: InputDecorationTheme(
+      // The label is a placeholder: floating, it would straddle the field's edge.
+      floatingLabelBehavior: FloatingLabelBehavior.never,
       filled: true,
       fillColor: c.surface,
       border: OutlineInputBorder(
