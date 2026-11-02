@@ -17,10 +17,9 @@ class Confetti extends StatefulWidget {
 
 class _ConfettiState extends State<Confetti>
     with SingleTickerProviderStateMixin {
-  late final AnimationController _controller = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 2600),
-  )..forward();
+  // Made on the first draw, which never comes under reduced motion. A lazy
+  // field would then be created by dispose, on a widget that's already gone.
+  AnimationController? _controller;
 
   // Seeded: every phone in the room gets the same shower.
   late final List<_Paper> _papers = () {
@@ -30,17 +29,21 @@ class _ConfettiState extends State<Confetti>
 
   @override
   void dispose() {
-    _controller.dispose();
+    _controller?.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     if (MediaQuery.disableAnimationsOf(context)) return const SizedBox.shrink();
+    final controller = _controller ??= AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2600),
+    )..forward();
     return IgnorePointer(
       child: RepaintBoundary(
         child: CustomPaint(
-          painter: _ConfettiPainter(_controller, _papers),
+          painter: _ConfettiPainter(controller, _papers),
           size: Size.infinite,
         ),
       ),
