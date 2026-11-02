@@ -58,6 +58,23 @@ mixin GameControllerScreen<T extends StatefulWidget> on State<T> {
     return true;
   }
 
+  /// Goes back to home once this player is out of the room, however that came
+  /// about. Screens call this first in [onControllerChange].
+  bool leaveIfRemoved() {
+    if (!controller.hasLeftRoom) return false;
+    return navigateOnce(() {
+      final reason = controller.removedFromRoom;
+      // Grab the messenger before popping: showing the snackbar on this route
+      // and then popping takes the explanation down with the screen, so the
+      // player is ejected with no idea why.
+      final messenger = ScaffoldMessenger.of(context);
+      Navigator.of(context).pop();
+      if (reason != null) {
+        messenger.showSnackBar(SnackBar(content: Text(reason)));
+      }
+    });
+  }
+
   /// Shows a transient message, if this screen is still on screen.
   void snack(String message) => showSnack(context, message);
 }

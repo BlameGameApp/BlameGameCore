@@ -23,6 +23,10 @@ class GameSocket {
     final channel = WebSocketChannel.connect(
       Uri.parse('$wsBase/ws/$code/$playerId'),
     );
+    // A failed connection is reported on the stream, which is where the
+    // controller handles it. Left alone, this future would also report it as
+    // an unhandled exception.
+    channel.ready.ignore();
     return GameSocket._(channel);
   }
 

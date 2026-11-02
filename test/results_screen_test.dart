@@ -71,4 +71,21 @@ void main() {
 
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('losing the room leaves the leaderboard', (tester) async {
+    final h = await finishedGame(tester);
+    await pumpScreen(tester, ResultsScreen(controller: h.controller));
+
+    await h.emit(
+      tester,
+      PlayerLeft(
+        playerId: 'me',
+        kicked: true,
+        players: [player(id: 'p2', name: 'Jake', isHost: true)],
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byType(ResultsScreen), findsNothing);
+  });
 }

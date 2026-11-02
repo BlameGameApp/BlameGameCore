@@ -40,20 +40,7 @@ class _LobbyScreenState extends State<LobbyScreen>
 
   @override
   bool onControllerChange() {
-    // Kicked out: leave the lobby instead of sitting in a room we're not in.
-    if (c.hasLeftRoom) {
-      return navigateOnce(() {
-        final reason = c.removedFromRoom;
-        // Grab the messenger before popping: showing the snackbar on this
-        // route and then popping takes the explanation down with the lobby,
-        // so the kicked player is ejected with no idea why.
-        final messenger = ScaffoldMessenger.of(context);
-        Navigator.of(context).pop();
-        if (reason != null) {
-          messenger.showSnackBar(SnackBar(content: Text(reason)));
-        }
-      });
-    }
+    if (leaveIfRemoved()) return true;
     // When the backend starts the game, move everyone to the game screen.
     if (c.phase != GamePhase.lobby) {
       return navigateOnce(() {

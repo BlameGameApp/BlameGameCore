@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -6,6 +7,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:photo_blame/models/game_models.dart';
 import 'package:photo_blame/services/api_client.dart';
+import 'package:photo_blame/services/game_socket.dart';
 import 'package:photo_blame/state/game_controller.dart';
 
 import 'support/fakes.dart';
@@ -56,6 +58,27 @@ Future<GameController> _heartbeatController(
   );
   await controller.joinByCode('ABC12', 'Emma');
   return controller;
+}
+
+/// Sockets after the first never finish closing, like a real one that is
+/// closed while it's still connecting.
+class _HangingCloseSocket extends FakeGameSocket {
+  @override
+  Future<void> close() {
+    closed = true;
+    return Completer<void>().future;
+  }
+}
+
+class _HangingCloseFactory {
+  final sockets = <FakeGameSocket>[];
+  FakeGameSocket get latest => sockets.last;
+
+  GameSocket factory(String code, String playerId) {
+    final socket = sockets.isEmpty ? FakeGameSocket() : _HangingCloseSocket();
+    sockets.add(socket);
+    return socket;
+  }
 }
 
 void main() {
@@ -438,6 +461,80 @@ void main() {
       // 1 initial + 2 retries, and then it stops rather than hammering on.
       expect(sockets.sockets.length, 3);
       expect(c.connectionError, isNotNull);
+      expect(c.isReconnecting, isFalse);
+    });
+
+    // A real socket that is still connecting never finishes closing, and an
+    // outage is exactly when one gets closed: the HTTP call fails at once while
+    // the socket is still trying. Waiting on it froze the whole retry chain with
+    // the error already cleared, so the game went quiet with no banner up.
+    test('an outage is reported even when a half-open socket never closes',
+        () async {
+      final sockets = _HangingCloseFactory();
+      var serverIsUp = true;
+      final client = MockClient((request) async {
+        if (request.url.path.endsWith('/join')) {
+          return http.Response(jsonEncode(_joinOk), 200);
+        }
+        if (!serverIsUp) throw http.ClientException('connection refused');
+        return http.Response(jsonEncode(_snapshot), 200);
+      });
+      final c = GameController(
+        api: ApiClient(httpClient: client, baseUrl: 'http://test'),
+        socketFactory: sockets.factory,
+        heartbeatInterval: Duration.zero,
+        retryBackoff: const [
+          Duration(milliseconds: 5),
+          Duration(milliseconds: 5),
+        ],
+      );
+      await c.joinByCode('ABC12', 'Emma');
+      addTearDown(c.dispose);
+      serverIsUp = false;
+
+      sockets.latest.dropConnection();
+      await Future<void>.delayed(const Duration(milliseconds: 60));
+
+      expect(c.connectionError, isNotNull);
+      // 1 initial + 2 retries: the chain ran to the end instead of stalling.
+      expect(sockets.sockets.length, 3);
+    });
+
+    test('a room the server no longer has ends the game, without more retries',
+        () async {
+      final sockets = ReconnectingSocketFactory();
+      var roomExists = true;
+      final client = MockClient((request) async {
+        if (request.url.path.endsWith('/join')) {
+          return http.Response(jsonEncode(_joinOk), 200);
+        }
+        if (!roomExists) {
+          return http.Response('{"detail":"room not found"}', 404);
+        }
+        return http.Response(jsonEncode(_snapshot), 200);
+      });
+      final c = GameController(
+        api: ApiClient(httpClient: client, baseUrl: 'http://test'),
+        socketFactory: sockets.factory,
+        heartbeatInterval: Duration.zero,
+        retryBackoff: const [
+          Duration(milliseconds: 5),
+          Duration(milliseconds: 5),
+          Duration(milliseconds: 5),
+        ],
+      );
+      await c.joinByCode('ABC12', 'Emma');
+      addTearDown(c.dispose);
+      roomExists = false;
+
+      sockets.latest.dropConnection();
+      await Future<void>.delayed(const Duration(milliseconds: 60));
+
+      expect(c.hasLeftRoom, isTrue);
+      expect(c.removedFromRoom, isNotNull);
+      expect(c.connectionError, isNull);
+      // 1 initial + the 1 retry that found out, and no point in any more.
+      expect(sockets.sockets.length, 2);
       expect(c.isReconnecting, isFalse);
     });
 

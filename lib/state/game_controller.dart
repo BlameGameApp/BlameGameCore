@@ -262,7 +262,11 @@ class GameController extends ChangeNotifier {
     _heartbeat = null;
     _retryTimer = null;
     await _sub?.cancel();
-    await _socket?.close();
+    // Not awaited. A socket closed while it's still connecting never finishes
+    // closing, and an outage is exactly when that happens: the HTTP call fails
+    // at once while the socket is still trying. Waiting here stalled reconnect
+    // with the error already cleared, so the game went quiet with no banner.
+    unawaited(_socket?.close().catchError((Object _) {}));
     _sub = null;
     _socket = null;
   }
@@ -345,9 +349,18 @@ class GameController extends ChangeNotifier {
     _connectSocket();
     try {
       _applySnapshot(await api.getRoom(session.roomCode, playerId: myPlayerId));
-    } catch (_) {
+    } catch (e) {
       // The room is unreachable, so the new socket is no better than the old.
       await _teardownSocket();
+      if (e is ApiException && e.statusCode == 404) {
+        // Not an outage: the server restarted or evicted the room, and rooms
+        // live only in memory. No retry can bring it back, so this ends the
+        // game rather than leaving the player staring at "Connection lost".
+        hasLeftRoom = true;
+        removedFromRoom = 'This game no longer exists. Start a new one to play.';
+        notifyListeners();
+        return;
+      }
       connectionError = 'Lost connection to the game';
       notifyListeners();
       rethrow;

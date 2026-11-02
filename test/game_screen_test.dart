@@ -4,6 +4,7 @@ import 'package:photo_blame/models/game_models.dart';
 import 'package:photo_blame/screens/game_screen.dart';
 import 'package:photo_blame/state/game_controller.dart';
 
+import 'support/fakes.dart';
 import 'support/pump.dart';
 
 /// A round that ends well in the future, so the countdown stays positive.
@@ -103,6 +104,26 @@ void main() {
     );
 
     expect(find.text('700'), findsOneWidget);
+
+    await unmount(tester);
+    h.controller.dispose();
+  });
+
+  testWidgets('losing the room leaves the round instead of freezing on it',
+      (tester) async {
+    final h = await inRound(tester);
+
+    await h.emit(
+      tester,
+      PlayerLeft(
+        playerId: 'me',
+        kicked: true,
+        players: [player(id: 'p2', name: 'Jake', isHost: true)],
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byType(GameScreen), findsNothing);
 
     await unmount(tester);
     h.controller.dispose();

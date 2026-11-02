@@ -61,6 +61,7 @@ class _GameScreenState extends State<GameScreen>
 
   @override
   bool onControllerChange() {
+    if (leaveIfRemoved()) return true;
     if (c.phase == GamePhase.finished) {
       final left = navigateOnce(() {
         _displayTimer?.cancel();

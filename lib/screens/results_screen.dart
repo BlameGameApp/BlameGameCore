@@ -29,6 +29,7 @@ class _ResultsScreenState extends State<ResultsScreen>
 
   @override
   bool onControllerChange() {
+    if (leaveIfRemoved()) return true;
     // Any player (not just the host who triggered it) lands back in the
     // lobby once the backend confirms the reset over the WebSocket.
     // Everything else just rebuilds: without that the leaderboard is a frozen
