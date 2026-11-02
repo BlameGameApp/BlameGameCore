@@ -33,7 +33,7 @@ Pure logic under thin I/O layers:
 - `models.py` — the `Player` / `Photo` / `Round` / `Room` dataclasses and the `RoomState` enum everything else operates on.
 - `photo_meta.py` — strips EXIF (and with it GPS), XMP and PNG text chunks from uploads. Structural: it walks JPEG segment and PNG chunk headers and drops the metadata ones, so there is no decode, no re-encode and no image library in the trust path for attacker-supplied bytes. **The server owns this guarantee, not the client** — the iOS client's re-encode drops EXIF as a side effect, but Android/web/curl would not.
 - `main.py` — FastAPI routes (REST + one WS route `/ws/{code}/{player_id}`).
-- `store.py` — process-wide in-memory `GameStore` singleton (`dict[code→Room]`). **State is lost on restart and can't be shared across replicas.** Rooms carry `last_active` and are evicted after `ROOM_TTL_SECONDS` (6h) idle by a **lazy sweep on create/lookup** — no background task, since only a request can grow the store. Capped at `MAX_ROOMS` (500), swept first so an expired store doesn't read as a flood; past it `POST /rooms` is a 503. `POST /rooms` is unauthenticated and every room is in RAM, so without the cap a create loop kills the container and takes every live game with it. `time_fn`/`on_evict` are injectable; `main.py` wires `on_evict` to delete `uploads/{code}/`, refusing any code that resolves outside `UPLOAD_DIR`. `DELETE /rooms/{code}?host_id=` ends a room explicitly.
+- `store.py` — process-wide in-memory `GameStore` singleton (`dict[code→Room]`). **State is lost on restart and can't be shared across replicas.** Rooms carry `last_active` and are evicted after `ROOM_TTL_SECONDS` (6h) idle by a **lazy sweep on create/lookup** — no background task, since only a request can grow the store. Capped at `MAX_ROOMS` (500), swept first so an expired store doesn't read as a flood; past it `POST /rooms` is a 503. `POST /rooms` is unauthenticated and every room is in RAM, so without the cap a create loop kills the container and takes every live game with it. `time_fn`/`on_evict` are injectable; `main.py` wires `on_evict` to delete `uploads/{code}/`, refusing any code that resolves outside `UPLOAD_DIR`. `DELETE /rooms/{code}?host_id=` ends a room explicitly. Room codes have no vowels, so they can't spell a word.
 - `connection.py` — `ConnectionManager`, broadcasts events to a room's sockets.
 - `timer.py` — `RoundDriver` drives round timing (sleep injectable for tests). It holds on the reveal for `REVEAL_SECONDS` before advancing; without that pause `round_revealed` and the next `round_started` land in the same tick and players never see whose photo it was. It re-checks the room before revealing, so a round that moved underneath it isn't announced with the wrong photo.
 - Photos are written to local disk under `uploads/{code}/` (ephemeral on Railway).
@@ -65,7 +65,7 @@ performs. Both suites detect that and contribute the photo over the API instead.
 cd backend
 python -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
-pytest                           # currently 175 tests
+pytest                           # currently 176 tests
 ruff check .                     # pyflakes (F) only; configured in backend/pyproject.toml
 ```
 

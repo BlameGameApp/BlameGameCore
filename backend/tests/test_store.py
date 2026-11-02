@@ -31,6 +31,14 @@ def test_room_codes_do_not_collide():
     assert len(codes) == 200
 
 
+def test_room_codes_cannot_spell_words():
+    # A word needs a vowel, and 3 and 4 stand in for E and A. The code is the
+    # largest thing in the lobby and gets read aloud to a room.
+    store = GameStore(max_rooms=2000)
+    drawn = "".join(store.create_room().code for _ in range(2000))
+    assert set(drawn).isdisjoint("AEIOUY034")
+
+
 class FakeClock:
     """Injectable clock, so eviction tests don't have to wait out a TTL."""
 

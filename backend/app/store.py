@@ -38,8 +38,11 @@ MAX_ROOMS = 500
 EvictCallback = Callable[[str], None]
 TimeFn = Callable[[], float]
 
-# Ambiguous characters (0/O, 1/I) left out so codes are easy to read aloud.
-_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+# Ambiguous characters (0/O, 1/I) left out so codes are easy to read aloud, and
+# vowels, with the 3 and 4 that stand in for them, so a code can't spell a word.
+# A blocklist would only ever catch the words someone thought of. That leaves
+# 26^5 codes, comfortably more than MAX_ROOMS needs.
+_CODE_ALPHABET = "BCDFGHJKLMNPQRSTVWXZ256789"
 _CODE_LENGTH = 5
 
 
