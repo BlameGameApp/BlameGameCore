@@ -21,5 +21,5 @@ ubuntu-latest moved to Ubuntu 26.04, and actions/setup-python has no 3.12.1 buil
 <!-- AC:BEGIN -->
 - [x] #1 backend/.python-version names a minor version, so a new runner image can't strand it on a missing patch build
 - [x] #2 Local pyenv still resolves the file to an installed 3.12
-- [ ] #3 Backend tests and Backend build pass in CI on ubuntu-latest
+- [x] #3 Backend tests and Backend build pass in CI on ubuntu-latest
 <!-- AC:END -->
