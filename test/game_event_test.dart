@@ -36,6 +36,22 @@ void main() {
       'owner_id': 'p9',
     });
     expect((e as RoundRevealed).ownerId, 'p9');
+    // A reveal without standings still decodes (older server, or no scores).
+    expect(e.standings, isEmpty);
+  });
+
+  test('decodes round_revealed standings in the order sent', () {
+    final e = GameEvent.fromJson({
+      'type': 'round_revealed',
+      'round_index': 1,
+      'owner_id': 'p9',
+      'standings': [
+        {'id': 'p9', 'name': 'Jake', 'score': 800},
+        {'id': 'p1', 'name': 'Emma', 'score': 300},
+      ],
+    }) as RoundRevealed;
+    expect(e.standings.map((p) => p.name), ['Jake', 'Emma']);
+    expect(e.standings.first.score, 800);
   });
 
   test('decodes guess_result', () {

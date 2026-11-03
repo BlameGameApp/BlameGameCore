@@ -103,6 +103,11 @@ class GameController extends ChangeNotifier {
   /// Server epoch-ms deadline for the current round, or null between rounds.
   int? roundEndsAt;
 
+  /// Standings sent with the last reveal, in the server's order. Shown on the
+  /// between-rounds scoreboard; empty until the first reveal.
+  List<GamePlayer> _standings = const [];
+  List<GamePlayer> get standings => UnmodifiableListView(_standings);
+
   // Results
   List<GamePlayer> _finalRankings = const [];
   List<GamePlayer> get finalRankings => UnmodifiableListView(_finalRankings);
@@ -397,9 +402,10 @@ class GameController extends ChangeNotifier {
         hasGuessedThisRound = false;
         lastPointsEarned = null;
         phase = GamePhase.inRound;
-      case RoundRevealed(:final ownerId):
+      case RoundRevealed(:final ownerId, :final standings):
         revealedOwnerId = ownerId;
         roundEndsAt = null;
+        _standings = standings;
         phase = GamePhase.revealed;
       case GuessResult(:final guesserId, :final points):
         if (guesserId == myPlayerId) {
@@ -436,6 +442,7 @@ class GameController extends ChangeNotifier {
         revealedOwnerId = null;
         hasGuessedThisRound = false;
         lastPointsEarned = null;
+        _standings = const [];
         _finalRankings = const [];
         phase = GamePhase.lobby;
       case UnknownEvent():

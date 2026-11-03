@@ -92,6 +92,29 @@ void main() {
     h.controller.dispose();
   });
 
+  testWidgets('the reveal shows a scoreboard in the server\'s order',
+      (tester) async {
+    final h = await inRound(tester);
+
+    // Jake leads. The server ranks; the client must render that order as-is.
+    await h.emit(
+      tester,
+      const RoundRevealed(roundIndex: 0, ownerId: 'p2', standings: [
+        GamePlayer(id: 'p2', name: 'Jake', score: 800),
+        GamePlayer(id: 'me', name: 'Emma', score: 300),
+      ]),
+    );
+
+    expect(find.text('800'), findsOneWidget);
+    expect(find.text('300'), findsOneWidget);
+    final jake = tester.getTopLeft(find.text('800')).dy;
+    final emma = tester.getTopLeft(find.text('300')).dy;
+    expect(jake, lessThan(emma), reason: 'leader is rendered first');
+
+    await unmount(tester);
+    h.controller.dispose();
+  });
+
   testWidgets('the live score badge reflects points as they are won',
       (tester) async {
     final h = await inRound(tester);

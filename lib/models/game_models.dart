@@ -119,6 +119,9 @@ sealed class GameEvent {
         return RoundRevealed(
           roundIndex: (json['round_index'] as num).toInt(),
           ownerId: json['owner_id'] as String,
+          standings: ((json['standings'] as List<dynamic>?) ?? const [])
+              .map((e) => GamePlayer.fromJson(e as Map<String, dynamic>))
+              .toList(),
         );
       case 'guess_result':
         return GuessResult(
@@ -190,7 +193,16 @@ class RoundStarted extends GameEvent {
 class RoundRevealed extends GameEvent {
   final int roundIndex;
   final String ownerId;
-  const RoundRevealed({required this.roundIndex, required this.ownerId});
+
+  /// Standings after this round, already ordered by the server. Rendered
+  /// as-is: scoring is server-authoritative, so the client never re-sorts.
+  final List<GamePlayer> standings;
+
+  const RoundRevealed({
+    required this.roundIndex,
+    required this.ownerId,
+    this.standings = const [],
+  });
 }
 
 class GuessResult extends GameEvent {

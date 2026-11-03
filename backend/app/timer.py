@@ -19,7 +19,7 @@ import asyncio
 import time
 from typing import Awaitable, Callable, Dict, Optional
 
-from app.game import advance_round, current_photo, everyone_has_guessed
+from app.game import advance_round, current_photo, everyone_has_guessed, rankings
 from app.models import Room, RoomState
 
 EventCallback = Callable[[Dict], None]
@@ -60,6 +60,17 @@ class RoundDriver:
         # main.py -- round_revealed is the first thing that discloses it.
         photo = current_photo(self.room)
         return {"id": photo.id, "url": photo.url}
+
+    def _standings(self) -> list:
+        """Players ranked by score, highest first -- the server's ordering.
+
+        Sent with every reveal as well as at the end so the between-rounds
+        scoreboard never has to recompute or reorder scores client-side.
+        """
+        return [
+            {"id": p.id, "name": p.name, "score": p.score, "is_host": p.is_host}
+            for p in rankings(self.room)
+        ]
 
     def _still_ours(self, round_index: Optional[int] = None) -> bool:
         """True while the room is still running the game (and round) we drive.
@@ -124,6 +135,7 @@ class RoundDriver:
                     "type": "round_revealed",
                     "round_index": round_index,
                     "owner_id": owner_id,
+                    "standings": self._standings(),
                 }
             )
 
@@ -142,14 +154,4 @@ class RoundDriver:
             return
 
         # Left the IN_ROUND loop -> the game is finished.
-        from app.game import rankings  # local import avoids a cycle at module load
-
-        self._on_event(
-            {
-                "type": "game_finished",
-                "rankings": [
-                    {"id": p.id, "name": p.name, "score": p.score, "is_host": p.is_host}
-                    for p in rankings(self.room)
-                ],
-            }
-        )
+        self._on_event({"type": "game_finished", "rankings": self._standings()})

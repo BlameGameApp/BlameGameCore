@@ -111,6 +111,26 @@ async def test_reveal_event_includes_correct_owner():
 
 
 @pytest.mark.anyio
+async def test_reveal_event_carries_standings_ranked_by_score():
+    """The between-rounds scoreboard reads this: it must arrive ranked."""
+    room = make_started_room(total_rounds=1)
+    # Give the second player a lead, so "ranked" is distinguishable from
+    # "join order" -- otherwise this passes on an unsorted list.
+    room.players[1].score = 500
+    reveals = []
+    driver = RoundDriver(
+        room,
+        sleep=_noop_sleep,
+        on_event=lambda e: reveals.append(e) if e["type"] == "round_revealed" else None,
+    )
+    await driver.run()
+
+    standings = reveals[0]["standings"]
+    assert [p["name"] for p in standings] == ["Jake", "Emma"]
+    assert standings[0]["score"] == 500
+
+
+@pytest.mark.anyio
 async def test_round_started_event_carries_server_authoritative_deadline():
     room = make_started_room(total_rounds=1, round_seconds=10)
     starts = []
