@@ -167,6 +167,8 @@ Don't simplify away input validation at trust boundaries, error handling, or sec
   `Runner.debug.dylib` rather than embedded under `Runner.app/Frameworks/`, so check
   there (`nm Runner.app/Runner.debug.dylib | grep -i <plugin>`) when verifying a plugin
   is linked — the top-level `Runner` binary is just a thin launcher stub.
+- **From Xcode 27 on the Simulator app is DeviceHub**, inside `Xcode.app/Contents/Applications`, and `open -a Simulator` no longer finds anything. `scripts/open-simulator.sh` handles both. **Quitting DeviceHub shuts down the booted simulators**, and whatever is running on them.
+- **Always run the backend with `--reload --reload-dir app`.** Plain `--reload` also watches `backend/.venv`, and a change there restarts the server. Rooms live only in memory, so every open game turns into "room not found" with nothing in the app to explain it.
 - **Never run two `flutter run`s against this project concurrently.** They share
   `build/ios` and race while copying `Flutter.framework`, failing one with
   `rsync`/`move_file: Flutter.framework/Flutter: No such file or directory`. Build once

@@ -23,13 +23,13 @@ flutter pub get
 1. Start the backend (see [backend/README.md](backend/README.md)):
 
 ```sh
-cd backend && uvicorn app.main:app --reload   # → http://localhost:8000
+cd backend && uvicorn app.main:app --reload --reload-dir app   # → http://localhost:8000
 ```
 
-2. Open the iOS Simulator:
+2. Open the iOS Simulator (DeviceHub from Xcode 27 on):
 
 ```sh
-open -a Simulator
+scripts/open-simulator.sh
 ```
 
 3. Run the app (defaults to `API_BASE=http://localhost:8000`):
@@ -68,7 +68,7 @@ scripts/run-local-multiplayer.sh
 
 This single command:
 
-1. Starts the **backend** (`uvicorn --reload`) at `http://localhost:8000`, if
+1. Starts the **backend** (`uvicorn --reload --reload-dir app`) at `http://localhost:8000`, if
    it isn't already running.
 2. Starts the **Backlog.md board** (`backlog browser`) and opens it in your
    browser, if the `backlog` CLI is on PATH.
@@ -87,14 +87,14 @@ Individual pieces, if you want to run them separately instead:
 
 ```sh
 # Backend only
-cd backend && uvicorn app.main:app --reload   # → http://localhost:8000
+cd backend && uvicorn app.main:app --reload --reload-dir app   # → http://localhost:8000
 
 # Backlog board only
 backlog browser                               # opens the web UI
 
 # Flutter only, with hot reload (single device, `r`/`R` in the terminal for
 # manual reload/restart; edits still apply automatically once you're attached)
-open -a Simulator
+scripts/open-simulator.sh
 flutter run --dart-define=API_BASE=http://localhost:8000
 ```
 
@@ -104,7 +104,7 @@ flutter run --dart-define=API_BASE=http://localhost:8000
 xcrun simctl list devices available          # find two device UDIDs
 xcrun simctl boot <udid-1>
 xcrun simctl boot <udid-2>
-open -a Simulator
+scripts/open-simulator.sh
 flutter run -d <udid-1> --dart-define=API_BASE=http://localhost:8000
 flutter run -d <udid-2> --dart-define=API_BASE=http://localhost:8000   # run in a second terminal
 ```
